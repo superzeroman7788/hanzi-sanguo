@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>三国自走棋 · 版本选择</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #14100c; color: #e8d9b0;
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 18px; padding: 24px;
+  }
+  h1 { font-size: 28px; letter-spacing: 8px; color: #f0c060; margin-bottom: 4px; }
+  p.sub { color: #8a7a58; font-size: 13px; margin-bottom: 14px; }
+  a.ver {
+    display: block; width: 100%; max-width: 360px; text-decoration: none;
+    background: #2a2018; border: 2px solid #4a3a28; border-radius: 12px;
+    padding: 16px 18px; color: #e8d9b0; transition: border-color .15s;
+  }
+  a.ver:hover { border-color: #f0c060; }
+  a.ver b { font-size: 19px; color: #f0c060; letter-spacing: 2px; }
+  a.ver span { display: block; font-size: 13px; color: #a89468; margin-top: 6px; line-height: 1.6; }
+  .tag { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 8px;
+    background: #4a3a28; color: #d8c8a0; margin-left: 8px; vertical-align: 3px; }
+</style>
+</head>
+<body>
+  <h1>三国自走棋</h1>
+  <p class="sub">三种玩法原型 · 选一个开战</p>
+  <a class="ver" href="zhujiang.html">
+    <b>① 常规版</b><span class="tag">主帅系统</span>
+    <span>棋盘上纯兵种对决。开局三选一主帅（关羽/张飞/赵云…），主帅提供全军光环，战斗中攒满能量手动释放主帅大招。</span>
+  </a>
+  <a class="ver" href="shenqi.html">
+    <b>② 神器版</b><span class="tag">神兵认主</span>
+    <span>打赢缴获神器：青龙偃月刀交给 2 星刀盾兵，当场觉醒为关羽上阵！觉醒继承星级，名将同心羁绊。</span>
+  </a>
+  <a class="ver" href="hanzi.html">
+    <b>③ 字版</b><span class="tag">拼字合体</span>
+    <span>棋子全是汉字牌：商店抽兵种字和姓名字，「赵」+「云」合体赵云登场。一字多将：张通飞/辽，黄通忠/盖。</span>
+  </a>
+</body>
+</html>

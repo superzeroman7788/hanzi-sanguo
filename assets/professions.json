@@ -1,0 +1,499 @@
+{
+ "义贼": {
+  "type": "贼兵",
+  "movement": 5,
+  "range": "RANGE_RECT_8",
+  "anim": {
+   "enemy": "51",
+   "friend": "50",
+   "player": "49"
+  }
+ },
+ "亲卫队": {
+  "type": "骑兵",
+  "movement": 7,
+  "range": "RANGE_RECT_8",
+  "anim": {
+   "enemy": "18",
+   "friend": "17",
+   "player": "16"
+  }
+ },
+ "仙人": {
+  "type": "仙人",
+  "movement": 5,
+  "range": "RANGE_LINE_4",
+  "anim": {
+   "enemy": "108",
+   "friend": "108",
+   "player": "108"
+  }
+ },
+ "仙术士": {
+  "type": "风水士",
+  "movement": 6,
+  "range": "RANGE_LINE_4",
+  "anim": {
+   "enemy": "81",
+   "friend": "80",
+   "player": "79"
+  }
+ },
+ "军师": {
+  "type": "策士",
+  "movement": 5,
+  "range": "RANGE_LINE_4",
+  "anim": {
+   "enemy": "72",
+   "friend": "71",
+   "player": "70"
+  }
+ },
+ "参谋": {
+  "type": "策士",
+  "movement": 4,
+  "range": "RANGE_LINE_4",
+  "anim": {
+   "enemy": "69",
+   "friend": "68",
+   "player": "67"
+  }
+ },
+ "咒术士": {
+  "type": "咒术士",
+  "movement": 7,
+  "range": "RANGE_LINE_4",
+  "anim": {
+   "enemy": "125"
+  }
+ },
+ "土偶": {
+  "type": "土偶",
+  "movement": 4,
+  "range": "RANGE_LINE_4",
+  "anim": {
+   "enemy": "107"
+  }
+ },
+ "妖术士": {
+  "type": "道士",
+  "movement": 5,
+  "range": "RANGE_LINE_4",
+  "anim": {
+   "enemy": "90",
+   "friend": "89",
+   "player": "88"
+  }
+ },
+ "巫女": {
+  "type": "舞娘",
+  "movement": 6,
+  "range": "RANGE_RECT_8",
+  "anim": {
+   "enemy": "148",
+   "player": "120"
+  }
+ },
+ "幻术士": {
+  "type": "道士",
+  "movement": 4,
+  "range": "RANGE_LINE_4",
+  "anim": {
+   "enemy": "87",
+   "friend": "86",
+   "player": "85"
+  }
+ },
+ "弓兵": {
+  "type": "弓兵",
+  "movement": 4,
+  "range": "RANGE_INTERVAL_CIRCLE_8",
+  "anim": {
+   "enemy": "21",
+   "friend": "20",
+   "player": "19"
+  }
+ },
+ "弓骑兵": {
+  "type": "弓骑兵",
+  "movement": 6,
+  "range": "RANGE_INTERVAL_LINE_4",
+  "anim": {
+   "enemy": "30",
+   "friend": "29",
+   "player": "28"
+  }
+ },
+ "弩兵": {
+  "type": "弓兵",
+  "movement": 4,
+  "range": "RANGE_INTERVAL_CIRCLE_20",
+  "anim": {
+   "enemy": "24",
+   "friend": "23",
+   "player": "22"
+  }
+ },
+ "弩骑兵": {
+  "type": "弓骑兵",
+  "movement": 6,
+  "range": "RANGE_INTERVAL_CIRCLE_8",
+  "anim": {
+   "enemy": "33",
+   "friend": "32",
+   "player": "31"
+  }
+ },
+ "拳圣": {
+  "type": "武道家",
+  "movement": 6,
+  "range": "RANGE_RECT_8",
+  "anim": {
+   "enemy": "45",
+   "friend": "44",
+   "player": "43"
+  }
+ },
+ "拳士": {
+  "type": "武道家",
+  "movement": 5,
+  "range": "RANGE_RECT_8",
+  "anim": {
+   "enemy": "42",
+   "friend": "41",
+   "player": "40"
+  }
+ },
+ "方术士": {
+  "type": "风水士",
+  "movement": 5,
+  "range": "RANGE_LINE_4",
+  "anim": {
+   "enemy": "78",
+   "friend": "77",
+   "player": "76"
+  }
+ },
+ "木人": {
+  "type": "木人",
+  "movement": 6,
+  "range": "RANGE_RECT_8",
+  "anim": {
+   "enemy": "106"
+  }
+ },
+ "武道家": {
+  "type": "武道家",
+  "movement": 5,
+  "range": "RANGE_LINE_4",
+  "anim": {
+   "enemy": "39",
+   "friend": "38",
+   "player": "37"
+  }
+ },
+ "海盗": {
+  "type": "海盗",
+  "movement": 6,
+  "range": "RANGE_RECT_8",
+  "anim": {
+   "enemy": "99",
+   "friend": "98",
+   "player": "97"
+  }
+ },
+ "百姓": {
+  "type": "百姓",
+  "movement": 5,
+  "range": "RANGE_LINE_4",
+  "anim": {
+   "enemy": "138",
+   "friend": "138"
+  }
+ },
+ "皇帝": {
+  "type": "皇帝",
+  "movement": 5,
+  "range": "RANGE_LINE_4",
+  "anim": {
+   "enemy": "137",
+   "friend": "137"
+  }
+ },
+ "策士": {
+  "type": "策士",
+  "movement": 4,
+  "range": "RANGE_LINE_4",
+  "anim": {
+   "enemy": "66",
+   "friend": "65",
+   "player": "64"
+  }
+ },
+ "群雄": {
+  "type": "君主",
+  "movement": 6,
+  "range": "RANGE_LINE_4",
+  "anim": {
+   "enemy": "124",
+   "friend": "124",
+   "player": "109"
+  }
+ },
+ "舞姬": {
+  "type": "舞娘",
+  "movement": 5,
+  "range": "RANGE_RECT_8",
+  "anim": {
+   "enemy": "148",
+   "player": "119"
+  }
+ },
+ "舞娘": {
+  "type": "舞娘",
+  "movement": 5,
+  "range": "RANGE_LINE_4",
+  "anim": {
+   "enemy": "148",
+   "player": "118"
+  }
+ },
+ "英雄": {
+  "type": "君主",
+  "movement": 6,
+  "range": "RANGE_RECT_8",
+  "anim": {
+   "enemy": "129",
+   "friend": "129",
+   "player": "110"
+  }
+ },
+ "西凉骑兵": {
+  "type": "西凉骑兵",
+  "movement": 6,
+  "range": "RANGE_RECT_8",
+  "anim": {
+   "enemy": "102",
+   "friend": "101"
+  }
+ },
+ "训熊师": {
+  "type": "训熊师",
+  "movement": 6,
+  "range": "RANGE_RECT_8",
+  "anim": {
+   "enemy": "96",
+   "friend": "95",
+   "player": "94"
+  }
+ },
+ "训虎师": {
+  "type": "训虎师",
+  "movement": 6,
+  "range": "RANGE_LINE_4",
+  "anim": {
+   "enemy": "93",
+   "friend": "92",
+   "player": "91"
+  }
+ },
+ "豪杰": {
+  "type": "贼兵",
+  "movement": 6,
+  "range": "RANGE_RECT_8",
+  "anim": {
+   "enemy": "54",
+   "friend": "53",
+   "player": "52"
+  }
+ },
+ "贼兵": {
+  "type": "贼兵",
+  "movement": 5,
+  "range": "RANGE_RECT_8",
+  "anim": {
+   "enemy": "48",
+   "friend": "47",
+   "player": "46"
+  }
+ },
+ "轻步兵": {
+  "type": "步兵",
+  "movement": 4,
+  "range": "RANGE_RECT_8",
+  "anim": {
+   "enemy": "3",
+   "friend": "2",
+   "player": "1"
+  }
+ },
+ "轻炮车": {
+  "type": "炮车",
+  "movement": 3,
+  "range": "RANGE_INTERVAL_CIRCLE_16",
+  "anim": {
+   "enemy": "57",
+   "friend": "56",
+   "player": "55"
+  }
+ },
+ "轻骑兵": {
+  "type": "骑兵",
+  "movement": 6,
+  "range": "RANGE_LINE_4",
+  "anim": {
+   "enemy": "12",
+   "friend": "11",
+   "player": "10"
+  }
+ },
+ "运粮车": {
+  "type": "运粮车",
+  "movement": 5,
+  "range": "RANGE_LINE_4",
+  "anim": {
+   "enemy": "104",
+   "friend": "104"
+  }
+ },
+ "近卫兵": {
+  "type": "步兵",
+  "movement": 5,
+  "range": "RANGE_RECT_8",
+  "anim": {
+   "enemy": "9",
+   "friend": "8",
+   "player": "7"
+  }
+ },
+ "连弩兵": {
+  "type": "弓兵",
+  "movement": 5,
+  "range": "RANGE_INTERVAL_CIRCLE_36_2",
+  "anim": {
+   "enemy": "27",
+   "friend": "26",
+   "player": "25"
+  }
+ },
+ "连弩骑兵": {
+  "type": "弓骑兵",
+  "movement": 7,
+  "range": "RANGE_INTERVAL_CIRCLE_20",
+  "anim": {
+   "enemy": "36",
+   "friend": "35",
+   "player": "34"
+  }
+ },
+ "道士": {
+  "type": "道士",
+  "movement": 4,
+  "range": "RANGE_LINE_4",
+  "anim": {
+   "enemy": "84",
+   "friend": "83",
+   "player": "82"
+  }
+ },
+ "都督": {
+  "type": "都督",
+  "movement": 6,
+  "range": "RANGE_LINE_4",
+  "anim": {
+   "enemy": "134"
+  }
+ },
+ "重步兵": {
+  "type": "步兵",
+  "movement": 4,
+  "range": "RANGE_RECT_8",
+  "anim": {
+   "enemy": "6",
+   "friend": "5",
+   "player": "4"
+  }
+ },
+ "重炮车": {
+  "type": "炮车",
+  "movement": 3,
+  "range": "RANGE_INTERVAL_CIRCLE_16",
+  "anim": {
+   "enemy": "60",
+   "friend": "59",
+   "player": "58"
+  }
+ },
+ "重骑兵": {
+  "type": "骑兵",
+  "movement": 6,
+  "range": "RANGE_LINE_4",
+  "anim": {
+   "enemy": "15",
+   "friend": "14",
+   "player": "13"
+  }
+ },
+ "霸王": {
+  "type": "君主",
+  "movement": 7,
+  "range": "RANGE_RECT_8",
+  "anim": {
+   "enemy": "136",
+   "friend": "136",
+   "player": "111"
+  }
+ },
+ "霹雳车": {
+  "type": "炮车",
+  "movement": 4,
+  "range": "RANGE_INTERVAL_CIRCLE_36",
+  "anim": {
+   "enemy": "63",
+   "friend": "62",
+   "player": "61"
+  }
+ },
+ "风水士": {
+  "type": "风水士",
+  "movement": 4,
+  "range": "RANGE_LINE_4",
+  "anim": {
+   "enemy": "75",
+   "friend": "74",
+   "player": "73"
+  }
+ },
+ "骑马军师": {
+  "type": "骑马策士",
+  "movement": 7,
+  "range": "RANGE_LINE_4",
+  "anim": {
+   "player": "123"
+  }
+ },
+ "骑马参谋": {
+  "type": "骑马策士",
+  "movement": 6,
+  "range": "RANGE_LINE_4",
+  "anim": {
+   "player": "122"
+  }
+ },
+ "骑马策士": {
+  "type": "骑马策士",
+  "movement": 6,
+  "range": "RANGE_LINE_4",
+  "anim": {
+   "player": "121"
+  }
+ },
+ "黄巾军": {
+  "type": "黄巾军",
+  "movement": 5,
+  "range": "RANGE_LINE_4",
+  "anim": {
+   "enemy": "103"
+  }
+ }
+}
