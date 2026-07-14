@@ -834,7 +834,7 @@ function unitActRT(u) {
 const RT_DELAY = { heroskill: 1500, skill: 1400, attack: 1050, heal: 1250, move: 1350, stun: 900, idle: 420 };
 function actDelay(u, kind) {
   let d = RT_DELAY[kind] || 800;
-  if (u.side === "foe" && kind === "move") d = 1450 - Math.min(650, round * 55);   // 关卡越深压得越快
+  if (u.side === "foe" && kind === "move") d = 1600 - Math.min(500, round * 45);   // 关卡越深压得越快
   if (u.cls === "cavalry" && kind === "move") d *= 0.7;
   return d * speedMult;
 }
