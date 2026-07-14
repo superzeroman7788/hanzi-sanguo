@@ -2287,16 +2287,17 @@ function drawTile(u, px, py, now, sizeBase) {
     ctx.fillText("曹", 0, 1);
     ctx.restore();
   }
-  // 将印（姓名字/英雄）
+  // 兵种印（英雄牌角标：黄忠→弓 赵云→骑）
   if ((u.kind === "name" || u.hero) && !grey) {
+    const cc = CLASS_CHARS.find(v => v.cls === u.cls);
     ctx.save();
     ctx.translate(X + S - 7, Y + 8);
     ctx.rotate(0.12);
     ctx.fillStyle = "#a02818";
     ctx.fillRect(-6.5, -6.5, 13, 13);
     ctx.fillStyle = "#f0e0c0";
-    ctx.font = "bold 8px sans-serif";
-    ctx.fillText("将", 0, 1);
+    ctx.font = "bold 9px sans-serif";
+    ctx.fillText(cc ? cc.char : "将", 0, 1);
     ctx.restore();
   }
   ctx.textBaseline = "alphabetic";
