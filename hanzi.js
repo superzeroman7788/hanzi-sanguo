@@ -1566,38 +1566,6 @@ function drawGrid(now) {
     gtx.font = `bold ${Math.round(G_CELL * 0.56)}px "Kaiti SC", "STKaiti", "KaiTi", serif`;
     gtx.textAlign = "center"; gtx.textBaseline = "middle";
     gtx.fillText(cell.char, x + G_CELL / 2, y + G_CELL / 2 + 1);
-    // 将印 / 兵角标+价格
-    if (cell.type === "name") {
-      gtx.save();
-      gtx.translate(x + G_CELL - 9, y + 9);
-      gtx.rotate(0.1);
-      gtx.fillStyle = "#a02818";
-      gtx.fillRect(-6, -6, 12, 12);
-      gtx.fillStyle = "#f0e0c0";
-      gtx.font = "bold 8px sans-serif";
-      gtx.fillText("\u5c06", 0, 1);
-      gtx.restore();
-    } else if (cell.type === "wep") {
-      gtx.save();
-      gtx.translate(x + G_CELL - 9, y + 9);
-      gtx.rotate(-0.08);
-      gtx.fillStyle = "#8a6a10";
-      gtx.fillRect(-6, -6, 12, 12);
-      gtx.fillStyle = "#faf0d0";
-      gtx.font = "bold 8px sans-serif";
-      gtx.fillText("\u5668", 0, 1);
-      gtx.restore();
-    } else {
-      const C = CLASS_CHARS.find(v => v.id === cell.clsId);
-      gtx.fillStyle = "#4a5a80";
-      gtx.fillRect(x + G_CELL - 17, y + G_CELL - 15, 15, 13);
-      gtx.fillStyle = "#e8eef8";
-      gtx.font = "bold 9px sans-serif";
-      gtx.fillText("\u5175", x + G_CELL - 9.5, y + G_CELL - 8);
-      gtx.fillStyle = "#8a6a10";
-      gtx.font = "bold 10px sans-serif";
-      gtx.fillText(C.cost + "\u91d1", x + 12, y + G_CELL - 8);
-    }
   }
   // 中央大提示（军资不足等）
   if (gridToast) {
