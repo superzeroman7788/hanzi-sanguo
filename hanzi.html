@@ -80,7 +80,15 @@
     background: linear-gradient(180deg, #f2e7cd, #e9dbba);
     touch-action: none;
   }
-  #gridHint { text-align: center; font-size: 10.5px; color: #8a7550; padding: 2px 0 1px; white-space: nowrap; overflow: hidden; }
+  #gridHint { text-align: left; font-size: 10.5px; color: #8a7550; padding: 3px 76px 2px 8px; white-space: nowrap; overflow: hidden; }
+  #refresh {
+    position: absolute; right: 3px; top: 0; z-index: 2;
+    font: bold 11px/1 inherit; padding: 4px 9px; letter-spacing: 0;
+    border: 1.5px solid #3a2f24; border-radius: 6px 5px 7px 5px;
+    background: linear-gradient(180deg, #f2e7cd, #e2d2ac); color: #5a4a30;
+    box-shadow: 1px 2px 0 rgba(58,47,36,.2); cursor: pointer;
+  }
+  #refresh:disabled { filter: grayscale(.6) brightness(.9); box-shadow: none; }
   #gridHint.err { color: #a02818; font-weight: bold; }
 
   /* 按钮行 */
@@ -126,9 +134,8 @@
   <div id="app">
   <div id="topbar">
     <span>关 <b id="round">1</b>/10 · <span id="waveInfo">备战</span></span>
-    <span>❤️<b id="php">100</b></span>
-    <span>💰<b id="gold">0</b><span style="font-size:10px">(息<span id="interest">0</span>)</span></span>
-    <span><b id="streak">—</b></span>
+    <span>🧱<b id="wallN">5</b>/5</span>
+    <span>💰<b id="gold">0</b></span>
   </div>
   <div id="boardBox">
     <canvas id="cv"></canvas>
@@ -140,17 +147,11 @@
     </div>
   </div>
   <div id="gridWrap">
-    <div id="gridHint">👆 点字凑名（不用相邻）· 点两下＝确认/单买 · 发光的字能组名将</div>
+    <div id="gridHint">👆 连相邻字凑名将</div>
+    <button id="refresh">换盘1金</button>
     <canvas id="gridCv"></canvas>
   </div>
-  <div id="btnRow">
-    <button id="refresh">换一盘1金</button>
-    <button id="buyxp">经验4金</button>
-    <button id="speed">⏩</button>
-    <button id="sound">🔊</button>
-    <button id="fight">出 征</button>
   </div>
-  </div>
-  <script src="hanzi.js?v=rt20"></script>
+  <script src="hanzi.js?v=rt21"></script>
 </body>
 </html>

@@ -7,8 +7,9 @@
 ======================================================= */
 
 // ---------- 常量 ----------
-const COLS = 6, ROWS = 7, TILE = 64;   // 铺满屏幕：7行（敌区3+中场1+部署3）
-const DEPLOY_ROWS = 3;
+const COLS = 5, ROWS = 6, TILE = 64;   // PvZ改制：5车道×6行（敌区3+中场1+部署2）
+const WALL_H = 14;                      // 城墙带（画在战场底部与备战条之间）
+const DEPLOY_ROWS = 2;   // 部署2行×5列=10格=人口10
 const MAX_ROUND = 10;   // 闯关：10关通关
 const BENCH_SIZE = 8;   // 囤字位加大
 const ACT_WAIT = { heroskill: 980, skill: 620, attack: 420, move: 220, idle: 40 };
@@ -22,22 +23,27 @@ const SHOP_ODDS = {
   5: [60, 28, 10, 2], 6: [50, 30, 15, 5], 7: [40, 32, 20, 8],
   8: [32, 30, 26, 12], 9: [26, 28, 29, 17], 10: [20, 26, 32, 22],
 };
-const BENCH_TILE = 40, BENCH_GAP = 3;
+const BENCH_TILE = 32, BENCH_GAP = 4;
 const BENCH_X0 = (COLS * TILE - (9 * BENCH_TILE + 8 * BENCH_GAP)) / 2;   // 含回收桶共9格
-const BENCH_Y0 = ROWS * TILE + 8;
+const WALL_Y = ROWS * TILE;
+const BENCH_Y0 = WALL_Y + WALL_H + 8;
 const BIN_SLOT = 8;   // 备战条第9格=回收桶
 // 回收条：选中棋子后点这里卖出
 const CANVAS_H = BENCH_Y0 + BENCH_TILE + 8;
 
 // ---------- 职业 ----------
+// PvZ功能化兵种：刀=贴脸坦伤 枪=直线贯穿 弓=守列狙击 医=药雾毒奶 骑=自动堵漏游骑
 const CLASSES = {
-  infantry: { name: "刀兵", hp: 150, atk: 15, def: 10, rng: 1, step: 1, skill: "旋风斩" },
-  lancer:   { name: "枪兵", hp: 120, atk: 14, def: 7,  rng: 2, step: 1, skill: "贯穿突刺" },
-  archer:   { name: "弓手", hp: 75,  atk: 16, def: 3,  rng: 3, step: 1, skill: "连珠箭" },
-  priest:   { name: "医师", hp: 70,  atk: 9,  def: 3,  rng: 2, step: 1, heal: 13, skill: "回春" },
-  cavalry:  { name: "铁骑", hp: 120, atk: 19, def: 7,  rng: 1, step: 2, skill: "冲锋" },
+  infantry: { name: "刀兵", hp: 200, atk: 24, def: 10, rng: 1, step: 1, mode: "front",  skill: "旋风斩" },
+  lancer:   { name: "枪兵", hp: 100, atk: 15, def: 6,  rng: 2, step: 1, mode: "pierce", skill: "贯穿突刺" },
+  archer:   { name: "弓手", hp: 65,  atk: 15, def: 3,  rng: 9, step: 1, mode: "column", skill: "连珠箭" },
+  priest:   { name: "医师", hp: 75,  atk: 8,  def: 3,  rng: 9, step: 1, heal: 6, mode: "mist", skill: "回春" },
+  cavalry:  { name: "铁骑", hp: 130, atk: 20, def: 7,  rng: 1, step: 2, mode: "rover",  skill: "冲锋" },
   namechar: { name: "字",   hp: 65,  atk: 8,  def: 2,  rng: 1, step: 1, skill: "" },   // 姓名字：弱单位，等待合体
 };
+// 药雾区域效果 {col,row,born,until,side}
+let mists = [];
+let nextMistTickAt = 0;
 // 克制：枪→骑→弓→刀→枪 循环 + 骑兵克医
 const COUNTERS = {
   infantry: ["lancer"], lancer: ["cavalry"], cavalry: ["archer", "priest"],
@@ -229,7 +235,10 @@ function thock(freq = 160, dur = 0.07, vol = 0.25) {
 
 // ---------- 对局状态 ----------
 let phase = "ready";   // ready(待出征) | fight(实时战斗+买将布阵) | over(结算)
-let round = 1, playerHp = 100, gold = 20;   // round = 当前关卡
+let round = 1, playerHp = 100, gold = 20;   // playerHp 已废弃，城墙制见 walls
+let walls = [2, 2, 2, 2, 2];   // 每列城墙：2=完好(有滚木) 1=缺口(可花钱修) 0=城破
+const WALL_FIX_COST = 8;
+let rollLogs = [];             // 滚木演出 {col, born}
 let wave = 0, waveTotal = 0, lastWin = false;
 let spawnQueue = [];        // 待入场敌人描述 {def, star}
 let nextSpawnAt = 0;        // 下一个敌人入场时刻
@@ -373,7 +382,7 @@ const cv = document.getElementById("cv");
 cv.width = COLS * TILE; cv.height = CANVAS_H;
 const ctx = cv.getContext("2d");
 
-const popCap = () => level;
+const popCap = () => 10;
 const fieldUnits = () => units.filter(u => u.side === "me" && u.state !== "dead");
 const fieldCount = () => fieldUnits().length;
 const interest = () => Math.min(5, Math.floor(gold / 10));
@@ -498,12 +507,8 @@ function synergyTiers(sideUnits) {
   }
   return tiers;
 }
-function applyFightBuffs() {
-  for (const side of ["me", "foe"]) {
-    const su = alive(side);
-    const tiers = synergyTiers(su);
-    for (const u of su) bakeStats(u, tiers);
-  }
+function applyFightBuffs() {   // 羁绊已删：只重算基础+神兵
+  for (const u of alive()) bakeStats(u, null);
 }
 
 // ---------- 战斗结算 ----------
@@ -517,7 +522,7 @@ function dealDamage(att, tgt, mult, opt = {}) {
     popup(tgt, "闪避", "#4a7a9a");
     return;
   }
-  const counter = COUNTERS[att.cls] && COUNTERS[att.cls].includes(tgt.cls);
+  const counter = false;
   const crit = Math.random() < (att.crit || 0.12);
   let dmg = Math.max(3, att.atk * mult * 1.3 - (opt.trueDmg ? 0 : tgt.def * 0.5));
   dmg *= (0.9 + Math.random() * 0.2);
@@ -765,15 +770,15 @@ function unitActRT(u) {
 
   // 怒气大招（敌我通用）
   const engaged = u.side !== "foe" || foes.some(f => dist(u, f) <= 1);
-  if (u.rage >= RAGE_MAX && u.kind !== "name" && foes.length && engaged) {
+  if (u.rage >= RAGE_MAX && u.hero && foes.length && engaged) {
     if (SKILLS[u.cls](u, foes)) {
       u.rage = 0;
       if (u.hero) { heroCast(u); return "heroskill"; }
       return "skill";
     }
   }
-  // 医师治疗
-  if (u.heal) {
+  // 医师治疗（旧逻辑，仅名将 priest 用）
+  if (u.heal && (u.hero || u.side === "foe")) {
     const hurt = alive(u.side).filter(a => a !== u && a.hp < a.maxHp && dist(u, a) <= u.rng)
       .sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp))[0];
     if (hurt) {
@@ -783,6 +788,81 @@ function unitActRT(u) {
       popup(hurt, "+" + u.heal, "#5a9a52");
       gainRage(u, 30);
       return "heal";
+    }
+  }
+  // ── 我方功能化兵种行为（PvZ式）──
+  if (u.side === "me" && !u.hero) {
+    const mode = CLASSES[u.cls] && CLASSES[u.cls].mode;
+    if (mode === "front") {          // 刀：只打正前1格（同列上方）
+      const tgt = foes.find(f => f.col === u.col && f.row === u.row - 1);
+      if (tgt) {
+        faceTo(u, tgt.col, tgt.row);
+        u.state = "attack"; u.animStart = performance.now();
+        dealDamage(u, tgt, 1);
+        gainRage(u, 26);
+        return "attack";
+      }
+      u.state = "stand"; return "idle";
+    }
+    if (mode === "pierce") {         // 枪：贯穿正前直线2格，全部命中
+      const hits = foes.filter(f => f.col === u.col && f.row < u.row && f.row >= u.row - 2);
+      if (hits.length) {
+        faceTo(u, u.col, u.row - 1);
+        u.state = "attack"; u.animStart = performance.now();
+        for (const f of hits) dealDamage(u, f, 1);
+        gainRage(u, 26);
+        return "attack";
+      }
+      u.state = "stand"; return "idle";
+    }
+    if (mode === "column") {         // 弓：守整条竖列，射最近的
+      const tgt = foes.filter(f => f.col === u.col && f.row < u.row).sort((a, b) => b.row - a.row)[0];
+      if (tgt) {
+        faceTo(u, tgt.col, tgt.row);
+        u.state = "attack"; u.animStart = performance.now();
+        shootArrow(u, tgt, 1);
+        gainRage(u, 26);
+        return "attack";
+      }
+      u.state = "stand"; return "idle";
+    }
+    if (mode === "mist") {           // 医：向敌人最密集处投药雾（敌中毒/友回血）
+      if (foes.length && !mists.some(m => m.side === "me" && performance.now() < m.until)) {
+        let best = null, bestN = -1;
+        for (const f of foes) {
+          const n = foes.filter(g => Math.abs(g.col - f.col) <= 1 && Math.abs(g.row - f.row) <= 1).length;
+          if (n > bestN) { bestN = n; best = f; }
+        }
+        faceTo(u, best.col, best.row);
+        u.state = "attack"; u.animStart = performance.now();
+        mists.push({ col: best.col, row: best.row, born: performance.now(), until: performance.now() + 3200, side: "me", pow: u.atk });
+        playSfx("Se_m_25", 0.3);
+        gainRage(u, 20);
+        return "skill";
+      }
+      u.state = "stand"; return "idle";
+    }
+    if (mode === "rover") {          // 骑：全场唯一机动，自动冲向最深入的敌人
+      const tgt = foes.slice().sort((a, b) => b.row - a.row)[0];
+      if (tgt) {
+        if (dist(u, tgt) <= 1) {
+          faceTo(u, tgt.col, tgt.row);
+          u.state = "attack"; u.animStart = performance.now();
+          dealDamage(u, tgt, 1);
+          gainRage(u, 26);
+          return "attack";
+        }
+        const dc = Math.sign(tgt.col - u.col), dr = Math.sign(tgt.row - u.row);
+        const stepTo = [[u.col + dc, u.row + dr], [u.col + dc, u.row], [u.col, u.row + dr]]
+          .find(([c, r]) => c >= 0 && c < COLS && r >= 0 && r < ROWS && !alive().some(v => v !== u && v.col === c && v.row === r));
+        if (stepTo) {
+          u.col = stepTo[0]; u.row = stepTo[1];
+          faceTo(u, u.col, u.row);
+          u.state = "walk"; u.animStart = performance.now();
+          return "move";
+        }
+      }
+      u.state = "stand"; return "idle";
     }
   }
   // 攻击射程内目标
@@ -816,14 +896,7 @@ function unitActRT(u) {
       u.state = "walk"; u.animStart = performance.now();
       return "move";
     }
-    // 正下被己方堵住：尝试斜下绕行
-    const opts = [u.col - 1, u.col + 1].filter(c => c >= 0 && c < COLS && !blockAt(c, nr));
-    if (opts.length) {
-      const c = opts[Math.floor(Math.random() * opts.length)];
-      u.col = c; u.row = nr; faceTo(u, c, nr);
-      u.state = "walk"; u.animStart = performance.now();
-      return "move";
-    }
+    // 纯车道制：被堵就地等待（不换列）
     u.state = "stand";
     return "idle";
   }
@@ -842,7 +915,7 @@ function actDelay(u, kind) {
 // ---------- 战斗主循环（实时塔防：渲染帧驱动） ----------
 function checkBattleEnd() {
   if (phase !== "fight") return true;
-  if (playerHp <= 0) {                 // 底线失守
+  if (walls.some(w => w === 0)) {      // 城破
     phase = "over";
     stopBgm();
     playSfx("Se_m_19");
@@ -873,6 +946,24 @@ function runBattleStep(now) {
     if (!nextWaveAt) nextWaveAt = now + 1600;      // 波间喘息
     if (now >= nextWaveAt) { nextWaveAt = 0; queueWave(); }
   }
+  // 药雾结算：每600ms一跳，雾区(±1格)敌中毒/友回血
+  if (now >= nextMistTickAt) {
+    nextMistTickAt = now + 600;
+    mists = mists.filter(m => now < m.until);
+    for (const m of mists) {
+      for (const v of alive()) {
+        if (Math.abs(v.col - m.col) > 1 || Math.abs(v.row - m.row) > 1) continue;
+        if (v.side !== m.side) {
+          v.hp -= Math.max(2, Math.round(m.pow * 0.7));
+          popup(v, "毒", "#7a5a9a");
+          if (v.hp <= 0) { v.hp = 0; v.state = "dead"; v.deadAt = now; if (v.side === "foe") gold += 1; }
+        } else if (v.hp < v.maxHp) {
+          v.hp = Math.min(v.maxHp, v.hp + Math.max(2, Math.round(m.pow * 0.5)));
+          popup(v, "+" + Math.max(2, Math.round(m.pow * 0.5)), "#5a9a52");
+        }
+      }
+    }
+  }
   // 各单位独立冷却行动
   for (const u of alive()) {
     if (now < (u.nextActAt || 0)) continue;
@@ -888,35 +979,16 @@ function runBattleStep(now) {
 function endCombat(win) {
   lastWin = win;
   const lines = [];
-  if (!win) {
-    const foeStars = alive("foe").reduce((s, u) => s + u.star + (u.hero ? 2 : 0), 0);
-    const dmg = 10 + foeStars * 2;
-    playerHp -= dmg;
-    lines.push(`第 ${wave}/${waveTotal} 波失守，损失 ${dmg} 点血量（剩 ${Math.max(0, playerHp)}）`);
-    winStreak = 0; loseStreak++;
-  } else if (breachCount > 0) {
-    winStreak = 0; loseStreak = 0;
-    lines.push(`本关被 ${breachCount} 股敌军突围（血量已实时扣除），连胜中断`);
-  } else {
-    winStreak++; loseStreak = 0;
-  }
-  const streakBonus = winStreak >= 4 ? 3 : winStreak >= 2 ? 1 : 0;
-  const int = interest();
-  const income = 3 + int + streakBonus + (win ? 2 : 0);
-  gold += income;
-  const parts = ["军饷3"];
-  if (int) parts.push(`利息${int}`);
-  if (win) parts.push("过关2");
-  if (streakBonus) parts.push(`连过${streakBonus}`);
-  lines.push(`收入 +${income} 金（${parts.join(" + ")}，击杀金已实时入账）`);
+  if (win && breachCount > 0) lines.push(`本关 ${breachCount} 次险情，城墙缺口可花 ${WALL_FIX_COST} 金修复`);
+  if (win) lines.push("守住了！击杀金已实时入账");
 
   refreshStats(); renderInv();
 
   const b = document.getElementById("banner");
   const txt = document.getElementById("bannerText");
   const nextBtn = document.getElementById("next");
-  if (playerHp <= 0) {
-    txt.textContent = "出 局"; txt.style.color = "#c05040";
+  if (!win) {
+    txt.textContent = "城 破"; txt.style.color = "#c05040";
     lines.push(`止步第 ${round} 关`);
     nextBtn.textContent = "重 新 开 局";
     nextBtn.onclick = () => location.reload();
@@ -926,9 +998,9 @@ function endCombat(win) {
     nextBtn.textContent = "重 新 开 局";
     nextBtn.onclick = () => location.reload();
   } else {
-    txt.textContent = win ? `第 ${round} 关 · 告捷` : `第 ${round} 关 · 失守`;
-    txt.style.color = win ? "#f0c060" : "#c05040";
-    nextBtn.textContent = win ? "进 军 下 一 关" : "重 整 再 战";
+    txt.textContent = `第 ${round} 关 · 告捷`;
+    txt.style.color = "#f0c060";
+    nextBtn.textContent = "进 军 下 一 关";
     nextBtn.onclick = nextRound;
   }
   document.getElementById("bannerSub").innerHTML = lines.join("<br>");
@@ -936,8 +1008,7 @@ function endCombat(win) {
 }
 
 function nextRound() {
-  if (lastWin) { round++; xp += 2; levelUpCheck(); }
-  else { xp += 1; levelUpCheck(); }
+  round++;
   document.getElementById("banner").classList.remove("show");
   // 存活者原地保留、满血清怒；阵亡的真的没了
   units = units.filter(u => u.side === "me" && u.state !== "dead");
@@ -972,12 +1043,15 @@ function defById(defId) {
 function unitDef(u) { return defById(u.defId); }
 function wavesFor(stage) { return Math.min(6, 2 + Math.floor((stage - 1) / 2)); }
 // 生成一波敌人描述，入队后按时间滴灌进场
+let mainCols = [];
 function queueWave() {
   wave++;
   battleCycles = 0;
+  mainCols = [Math.floor(Math.random() * COLS)];
+  if (round >= 3) mainCols.push(Math.floor(Math.random() * COLS));
   let budget = Math.round((4 + round * 2.6) * (1 + (wave - 1) * 0.45));
   const countCap = Math.min(12, 3 + round);
-  const pool = CLASS_CHARS.filter(c => c.cost <= Math.min(3, 1 + Math.floor(round / 2)));
+  const pool = CLASS_CHARS.filter(c => c.cls !== "priest" && c.cost <= Math.min(3, 1 + Math.floor(round / 2)));
   let guard = 60, placed = 0;
   while (budget >= 1 && placed < countCap && guard--) {
     const C = pool[Math.floor(Math.random() * pool.length)];
@@ -1005,7 +1079,11 @@ function spawnOneEnemy(q) {
   const cols = [];
   for (let c = 0; c < COLS; c++) if (!alive().some(v => v.col === c && v.row === 0)) cols.push(c);
   if (!cols.length) { spawnQueue.unshift(q); return false; }   // 顶行满，稍后再试
-  const c = cols[Math.floor(Math.random() * cols.length)];
+  // 导演：60%概率压主攻列
+  let c;
+  const openMain = mainCols.filter(m => cols.includes(m));
+  if (openMain.length && Math.random() < 0.6) c = openMain[Math.floor(Math.random() * openMain.length)];
+  else c = cols[Math.floor(Math.random() * cols.length)];
   const u = makeUnit(q.def, "foe", c, 0, q.star);
   u.y = -1.1;                       // 自上滑入
   if (u.hero) {
@@ -1020,14 +1098,39 @@ function spawnOneEnemy(q) {
 let breachCount = 0;
 let bottomFlashUntil = 0;
 function breach(u) {
-  u.state = "dead"; u.deadAt = performance.now() - 9999;   // 突围不是阵亡：不播死亡动画，直接冲出
+  const col = u.col;
+  u.state = "dead"; u.deadAt = performance.now() - 9999;   // 冲到墙下，不播阵亡动画
   breachCount++;
-  const dmg = u.star * 3 + (u.hero ? 6 : 0);
-  playerHp -= dmg;
-  popups.push({ x: u.col, y: ROWS - 1, text: `敌军突围！-${dmg}`, color: "#8a2818", born: performance.now(), big: true });
   bottomFlashUntil = performance.now() + 450;
-  doShake(9);
+  if (walls[col] === 2) {
+    // 首次触底：滚木反杀，整列敌人全灭（不给击杀金），墙留缺口
+    walls[col] = 1;
+    rollLogs.push({ col, born: performance.now() });
+    for (const v of alive("foe")) {
+      if (v.col !== col) continue;
+      v.hp = 0; v.state = "dead"; v.deadAt = performance.now();
+      spawnShreds(v, 5);
+    }
+    popups.push({ x: col, y: ROWS - 2, text: "滚木出击！", color: "#8a5a10", born: performance.now(), big: true });
+    setStatus(`第${col + 1}路城墙破口！点缺口花${WALL_FIX_COST}金可修复`);
+    playSfx("Se_m_28", 0.5);
+    doShake(10);
+  } else if (walls[col] === 1) {
+    // 缺口再破：城破，游戏失败
+    walls[col] = 0;
+    popups.push({ x: col, y: ROWS - 1, text: "城 破 ！", color: "#8a1810", born: performance.now(), big: true });
+    doShake(14);
+  }
   thock(60, 0.2, 0.35);
+  refreshStats();
+}
+function fixWall(col) {
+  if (walls[col] !== 1) return;
+  if (gold < WALL_FIX_COST) { showGridToast(`修墙还差 ${WALL_FIX_COST - gold} 金`); playSfx("Se_m_19", 0.3); return; }
+  gold -= WALL_FIX_COST;
+  walls[col] = 2;
+  popups.push({ x: col, y: ROWS - 1, text: "城墙修复", color: "#5a7a3a", born: performance.now(), big: true });
+  playSfx("Se_m_25", 0.5);
   refreshStats();
 }
 
@@ -1035,6 +1138,7 @@ function breach(u) {
 const GRID_COLS = 8, GRID_ROWS = 3;
 const G_CELL = 45, G_GAP = 3, G_PAD = 3;
 const HERO_PRICE = 5;
+const DEPLOY_ROWS_N = 2;   // 新制部署行数
 let grid = [];                 // grid[r][c] = {type:"name"|"class", char, clsId?}
 let gridPath = [];             // 选字序列 [{r,c}]
 let gridShakeUntil = 0;
@@ -1792,10 +1896,10 @@ gridCv.addEventListener("pointerup", () => {
   }
   downCell = null;
 });
-function renderShop() {   // 兼容旧调用点：维护按钮状态
-  const canOp = phase === "fight";
-  document.getElementById("refresh").disabled = !canOp || gold < 1;
-  document.getElementById("buyxp").disabled = !canOp || gold < 4 || level >= LEVEL_MAX;
+function renderShop() {   // 换盘钮状态（字盘右上角）
+  const btn = document.getElementById("refresh");
+  btn.textContent = `换盘${refreshCost()}金`;
+  btn.disabled = phase !== "fight" || gold < refreshCost();
 }
 function renderSyn() {
   const tiers = synergyTiers(fieldUnits());
@@ -1809,7 +1913,8 @@ function renderSyn() {
     const next = t >= 1 ? s.th[Math.min(1, t)] : s.th[0];
     rows.push(`<div class="badge ${t ? "on" : ""}">${label} ${n}/${next}${t ? `<small>${s.desc[t - 1]}</small>` : ""}</div>`);
   }
-  document.getElementById("synBadges").innerHTML = rows.join("");
+  const el = document.getElementById("synBadges");
+  if (el) el.innerHTML = "";
 }
 function claimWeapons(u) {
   if (!u || !u.hero || u.side !== "me") return;
@@ -1845,15 +1950,11 @@ function renderInv() { return;
 }
 function refreshStats() {
   document.getElementById("round").textContent = round;
-  document.getElementById("php").textContent = Math.max(0, playerHp);
   document.getElementById("gold").textContent = gold;
-  document.getElementById("interest").textContent = interest();
   document.getElementById("waveInfo").textContent = phase === "fight" ? `波${wave}/${waveTotal}` : phase === "ready" ? "备战" : "结算";
-  const streakEl = document.getElementById("streak");
-  streakEl.textContent = winStreak > 0 ? winStreak + "连胜" : loseStreak > 0 ? loseStreak + "连败" : "—";
-  document.getElementById("buyxp").textContent = level >= LEVEL_MAX ? `Lv${level}·满级` : `经验4金·Lv${level}(${xp}/${XP_NEED[level]})`;
-  document.getElementById("refresh").textContent = `换一盘${refreshCost()}金`;
-  document.getElementById("fight").disabled = phase !== "ready";
+  const ok = walls.filter(w => w === 2).length, gap = walls.filter(w => w === 1).length;
+  document.getElementById("wallN").textContent = ok + (gap ? `+${gap}缺` : "");
+  renderShop();
   renderHint();
 }
 const GRID_HINT_DEF = "👆 连相邻字凑名将 · ⚔连兵器名得神兵 · 直线8折 · 发光有路";
@@ -1997,6 +2098,11 @@ cv.addEventListener("click", e => {
   if (phase !== "fight") return;
   const { x, y } = canvasPos(e);
 
+  if (y >= WALL_Y && y <= WALL_Y + WALL_H + 8) {
+    const wc = Math.floor(x / TILE);
+    if (wc >= 0 && wc < COLS && walls[wc] === 1) fixWall(wc);
+    return;
+  }
   const bi = benchSlotAt(x, y);
   if (bi === BIN_SLOT) {
     if (selected) { playSfx("Se_m_19", 0.4); sellSelected(); setStatus("已回收，金币入账"); }
@@ -2073,6 +2179,33 @@ function drawBoard() {
     const fa = (bottomFlashUntil - performance.now()) / 450;
     ctx.fillStyle = `rgba(176,48,32,${0.45 * fa})`;
     ctx.fillRect(0, (ROWS - 1) * TILE, COLS * TILE, TILE);
+  }
+  // 城墙带：每列一段（完好=石垛+滚木待命；缺口=黑洞裂纹+修缮价）
+  for (let c = 0; c < COLS; c++) {
+    const wx = c * TILE;
+    if (walls[c] >= 1) {
+      ctx.fillStyle = walls[c] === 2 ? "#8a8072" : "#6a6058";
+      ctx.fillRect(wx, WALL_Y, TILE, WALL_H);
+      ctx.fillStyle = "rgba(40,32,24,.4)";
+      for (let i = 0; i < 4; i++) ctx.fillRect(wx + i * 16 + ((c % 2) * 8), WALL_Y + (i % 2 === 0 ? 0 : 7), 15, 1.5);
+      if (walls[c] === 2) {
+        ctx.fillStyle = "#7a5a30";
+        ctx.fillRect(wx + 6, WALL_Y + 4, TILE - 12, 6);
+        ctx.strokeStyle = "#4a3618"; ctx.lineWidth = 1;
+        ctx.strokeRect(wx + 6.5, WALL_Y + 4.5, TILE - 13, 5);
+      } else {
+        ctx.fillStyle = "#1c140c";
+        ctx.fillRect(wx + 14, WALL_Y, TILE - 28, WALL_H);
+        ctx.fillStyle = "#f0c860";
+        ctx.font = "bold 10px sans-serif";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(`修${WALL_FIX_COST}金`, wx + TILE / 2, WALL_Y + WALL_H / 2 + 0.5);
+        ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+      }
+    } else {
+      ctx.fillStyle = "#12100c";
+      ctx.fillRect(wx, WALL_Y, TILE, WALL_H);
+    }
   }
   if (((selected && bench.indexOf(selected) >= 0) || (bDragU && bDragMoved)) && phase === "fight") {
     const ga = 0.4 + 0.25 * Math.sin(performance.now() / 280);
@@ -2649,8 +2782,31 @@ function render(now) {
     console.error("渲染帧异常(已跳过):", e);
     try { ctx.restore(); } catch (e2) {}
   }
-  try { drawDragGhost(); } catch (e) {}
+  try { drawDragGhost(); drawRollLogs(); } catch (e) {}
   requestAnimationFrame(render);
+}
+// 滚木反杀演出：木桩从城墙沿列碾到顶
+function drawRollLogs() {
+  const now = performance.now();
+  rollLogs = rollLogs.filter(l => now - l.born < 850);
+  for (const l of rollLogs) {
+    const t = (now - l.born) / 850;
+    const y = WALL_Y - t * WALL_Y;
+    const x = l.col * TILE;
+    ctx.save();
+    ctx.fillStyle = "#7a5a30";
+    ctx.strokeStyle = "#3a2a12"; ctx.lineWidth = 2;
+    ctx.fillRect(x + 3, y - 10, TILE - 6, 20);
+    ctx.strokeRect(x + 3, y - 10, TILE - 6, 20);
+    for (let i = 1; i < 4; i++) {
+      const lx = x + 3 + ((i * 17 + t * 90) % (TILE - 6));
+      ctx.beginPath(); ctx.moveTo(lx, y - 10); ctx.lineTo(lx, y + 10); ctx.strokeStyle = "rgba(58,42,18,.5)"; ctx.lineWidth = 1.5; ctx.stroke();
+    }
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = "#c8b088";
+    ctx.fillRect(x + 6, y + 12, TILE - 12, 26 * (1 - t));
+    ctx.restore();
+  }
 }
 // 拖拽浮影与落点高亮（在 render 中每帧调用）
 function drawDragGhost() {
@@ -2680,7 +2836,7 @@ function drawDragGhost() {
 }
 
 // ---------- 流程 ----------
-document.getElementById("fight").onclick = () => {
+function startFight() {
   if (phase !== "ready") return;
   phase = "fight";
   selected = null; selItem = -1;
@@ -2694,20 +2850,18 @@ document.getElementById("fight").onclick = () => {
   setStatus();
   nextSpawnAt = performance.now() + 800;
   for (const u of alive("me")) u.nextActAt = performance.now() + Math.random() * 600;
-};
+}
 document.getElementById("refresh").onclick = () => regenGrid(false);
-document.getElementById("buyxp").onclick = buyXp;
-const spdBtn = document.getElementById("speed");
-spdBtn.onclick = () => {
-  speedMult = speedMult === 1 ? 0.5 : 1;
-  spdBtn.textContent = speedMult === 1 ? "⏩" : "⏩⏩";
-};
-const sndBtn = document.getElementById("sound");
-sndBtn.onclick = () => {
-  soundOn = !soundOn;
-  if (!soundOn) stopBgm(); else if (phase === "fight") startBgm();
-  sndBtn.textContent = soundOn ? "🔊" : "🔇";
-};
+function showStartBanner() {
+  const b = document.getElementById("banner");
+  document.getElementById("bannerText").textContent = "守 城";
+  document.getElementById("bannerText").style.color = "#ffe9a8";
+  document.getElementById("bannerSub").innerHTML = "曹军压境！连相邻字招兵买将，守住五路城墙<br>每路一根滚木：首次失守自动反杀清路，缺口花钱可修";
+  const nextBtn = document.getElementById("next");
+  nextBtn.textContent = "出 征";
+  nextBtn.onclick = () => { b.classList.remove("show"); startFight(); };
+  b.classList.add("show");
+}
 
 // ---------- 启动 ----------
 loadAssets().then(() => {
@@ -2717,6 +2871,7 @@ loadAssets().then(() => {
   setStatus();
   refreshStats(); renderSyn(); renderInv();
   requestAnimationFrame(render);
+  showStartBanner();
 });
 
 // ---------- 手机一屏化：整页等比缩放，杜绝滚动 ----------
