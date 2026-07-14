@@ -910,14 +910,6 @@ function endCombat(win) {
   if (streakBonus) parts.push(`连过${streakBonus}`);
   lines.push(`收入 +${income} 金（${parts.join(" + ")}，击杀金已实时入账）`);
 
-  // 过关掉落：第3/6/9关必掉，其余过关50%
-  if (win && (round % 3 === 0 || Math.random() < 0.5)) {
-    const keys = Object.keys(ITEMS);
-    const k = keys[Math.floor(Math.random() * keys.length)];
-    inventory.push(k);
-    lines.push(`战利品：<b>${ITEMS[k].name}</b>（${ITEMS[k].desc}）`);
-    playSfx("Se_m_25", 0.5);
-  }
   refreshStats(); renderInv();
 
   const b = document.getElementById("banner");
@@ -1302,22 +1294,33 @@ function commitPath(path) {
     heroAnim = { name: h.name, chars: h.chars, born: performance.now() };
     playSfx("Se_m_28", 0.7);
     doShake(5);
+    claimWeapons(nu);
     checkMerge(nu.defId, 1);
     setStatus(`${h.name} 应募登场！`);
     refreshStats(); renderSyn(); renderInv();
     return "ok";
   }
-  // 连成神兵：免费入库
+  // 连成神兵：自动认主（本命在场即装，不在则待其上阵自动装）
   const w = weaponByString(pathString(path));
   if (w) {
-    inventory.push("w_" + w.id);
     consumePath(path);
-    showGridToast(`获得神兵【${w.name}】！`);
+    const k = "w_" + w.id;
+    const owner = [...units, ...bench].find(v => v && v.side === "me" && v.hero && v.defId === w.hero && v.state !== "dead" && v.items.length < 2);
     popups.push({ x: COLS / 2 - 0.5, y: ROWS - 2, text: `⚔ ${w.name} 出世！`, color: "#8a6a10", born: performance.now(), big: true });
     playSfx("Se_m_28", 0.7);
     doShake(5);
-    setStatus(`${w.name} 入库——交给${(HEROES[w.hero] || {}).name}触发神兵共鸣！`);
-    renderInv(); refreshStats();
+    if (owner) {
+      owner.items.push(k);
+      bakeStats(owner, null);
+      popup(owner, `⚔ ${w.name} 认主！`, "#8a6a10", true);
+      showGridToast(`${w.name} 认主 ${owner.name}！`);
+      setStatus(`${w.name} 认主 ${owner.name}——神兵共鸣！`);
+    } else {
+      inventory.push(k);
+      showGridToast(`神兵【${w.name}】出世！`);
+      setStatus(`${w.name} 出世！待 ${(HEROES[w.hero] || {}).name} 上阵自动认主`);
+    }
+    refreshStats();
     return "ok";
   }
   gridShakeUntil = performance.now() + 300;
@@ -1831,7 +1834,21 @@ function renderSyn() {
   }
   document.getElementById("synBadges").innerHTML = rows.join("");
 }
-function renderInv() {
+function claimWeapons(u) {
+  if (!u || !u.hero || u.side !== "me") return;
+  for (let i = inventory.length - 1; i >= 0; i--) {
+    const k = inventory[i];
+    if (!k.startsWith("w_")) continue;
+    const w = WEAPONS.find(x => "w_" + x.id === k);
+    if (!w || w.hero !== u.defId || u.items.length >= 2) continue;
+    inventory.splice(i, 1);
+    u.items.push(k);
+    bakeStats(u, null);
+    popup(u, `⚔ ${w.name} 认主！`, "#8a6a10", true);
+    playSfx("Se_m_25", 0.5);
+  }
+}
+function renderInv() { return;
   const row = document.getElementById("invRow");
   row.classList.toggle("show", inventory.length > 0);
   row.innerHTML = "<span>装备▶</span>";
