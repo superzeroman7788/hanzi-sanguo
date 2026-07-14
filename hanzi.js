@@ -834,7 +834,7 @@ function unitActRT(u) {
 const RT_DELAY = { heroskill: 1500, skill: 1400, attack: 1050, heal: 1250, move: 1350, stun: 900, idle: 420 };
 function actDelay(u, kind) {
   let d = RT_DELAY[kind] || 800;
-  if (u.side === "foe" && kind === "move") d = 1500 - Math.min(500, round * 40);   // 关卡越深压得越快
+  if (u.side === "foe" && kind === "move") d = 1450 - Math.min(650, round * 55);   // 关卡越深压得越快
   if (u.cls === "cavalry" && kind === "move") d *= 0.7;
   return d * speedMult;
 }
@@ -982,22 +982,22 @@ function wavesFor(stage) { return Math.min(6, 2 + Math.floor((stage - 1) / 2)); 
 function queueWave() {
   wave++;
   battleCycles = 0;
-  let budget = Math.round((3 + round * 2) * (1 + (wave - 1) * 0.35));
-  const countCap = Math.min(10, 2 + round);
-  const pool = CLASS_CHARS.filter(c => c.cost <= Math.min(3, 1 + Math.floor(round / 3)));
+  let budget = Math.round((4 + round * 2.6) * (1 + (wave - 1) * 0.45));
+  const countCap = Math.min(12, 3 + round);
+  const pool = CLASS_CHARS.filter(c => c.cost <= Math.min(3, 1 + Math.floor(round / 2)));
   let guard = 60, placed = 0;
   while (budget >= 1 && placed < countCap && guard--) {
     const C = pool[Math.floor(Math.random() * pool.length)];
     let star = 1, cost = C.cost;
-    if (round >= 7 && wave >= 2 && budget >= C.cost * 9 && Math.random() < 0.2) { star = 3; cost = C.cost * 9; }
-    else if (round >= 3 && budget >= C.cost * 3 && Math.random() < 0.4) { star = 2; cost = C.cost * 3; }
+    if (round >= 5 && wave >= 2 && budget >= C.cost * 9 && Math.random() < 0.3) { star = 3; cost = C.cost * 9; }
+    else if (round >= 2 && budget >= C.cost * 3 && Math.random() < 0.5) { star = 2; cost = C.cost * 3; }
     if (cost > budget) continue;
     budget -= cost; placed++;
     spawnQueue.push({ def: defOfClassChar(C), star });
   }
   if (wave === waveTotal && round >= 10) {
     spawnQueue.push({ def: defOfHero(CAO_BOSS), star: 2 });
-  } else if (wave === waveTotal && round >= 3 && (round >= 6 || Math.random() < 0.7)) {
+  } else if (wave === waveTotal && round >= 2 && (round >= 5 || Math.random() < 0.8)) {
     const h = CAO_GENERALS[Math.floor(Math.random() * CAO_GENERALS.length)];
     spawnQueue.push({ def: defOfHero(h), star: round >= 8 ? 2 : 1 });
   }
@@ -1878,12 +1878,22 @@ function handlePick(u) {
   selected = selected === u ? null : u;
 }
 let bDragU = null, bDragPos = null, bDragStart = null, bDragMoved = false, suppressClick = false;
+let bDragFrom = null;   // {type:"bench",slot} | {type:"field"}
 cv.addEventListener("pointerdown", e => {
-  if (phase !== "fight") return;
+  if (phase !== "fight" || selItem >= 0) return;
   const p = canvasPos(e);
   const bi = benchSlotAt(p.x, p.y);
-  if (bi >= 0 && bench[bi] && selItem < 0) {
-    bDragU = bench[bi]; bDragPos = p; bDragStart = p; bDragMoved = false;
+  if (bi >= 0 && bench[bi]) {
+    bDragU = bench[bi]; bDragFrom = { type: "bench", slot: bi };
+  } else {
+    const col = Math.floor(p.x / TILE), row = Math.floor(p.y / TILE);
+    if (col >= 0 && col < COLS && row >= 0 && row < ROWS) {
+      const u = units.find(v => v.col === col && v.row === row && v.side === "me" && v.state !== "dead");
+      if (u) { bDragU = u; bDragFrom = { type: "field" }; }
+    }
+  }
+  if (bDragU) {
+    bDragPos = p; bDragStart = p; bDragMoved = false;
     try { cv.setPointerCapture(e.pointerId); } catch (err) {}
   }
 });
@@ -1893,21 +1903,68 @@ cv.addEventListener("pointermove", e => {
   if (Math.abs(bDragPos.x - bDragStart.x) > 14 || Math.abs(bDragPos.y - bDragStart.y) > 14) bDragMoved = true;
   e.preventDefault();
 });
+function unfield(u) {                 // 场上单位离场（不结算金币）
+  units = units.filter(v => v !== u);
+  u.col = null; u.row = null;
+}
+function placeOnField(u, col, row) {   // 直接落位（调用方保证格子归属）
+  u.col = col; u.row = row; u.x = col; u.y = row;
+  if (!units.includes(u)) units.push(u);
+  u.nextActAt = performance.now() + 500;
+  spawnFx("Meff_13", col, row, 1.2);
+}
 cv.addEventListener("pointerup", e => {
   if (!bDragU) return;
   const p = canvasPos(e);
-  if (bDragMoved) {
-    suppressClick = true;
-    if (p.y >= SELL_Y0 && p.y <= SELL_Y0 + SELL_H + 12) {
-      selected = bDragU; playSfx("Se_m_19", 0.4); sellSelected(); setStatus("已回收，金币入账");
-    } else {
-      const col = Math.floor(p.x / TILE), row = Math.floor(p.y / TILE);
-      if (tryDeploy(bDragU, col, row)) { selected = null; playSfx("Se_m_21", 0.3); }
-      else if (row < ROWS - DEPLOY_ROWS && row >= 0) setStatus("只能放进部署区（下三行虚线框内）");
+  const u = bDragU, from = bDragFrom;
+  bDragU = null; bDragPos = null; bDragFrom = null;
+  if (!bDragMoved) return;             // 未拖动：让 click 走点选流程
+  suppressClick = true;
+  const col = Math.floor(p.x / TILE), row = Math.floor(p.y / TILE);
+  const bi = benchSlotAt(p.x, p.y);
+  const inDeploy = col >= 0 && col < COLS && row >= ROWS - DEPLOY_ROWS && row < ROWS;
+  if (p.y >= SELL_Y0 && p.y <= SELL_Y0 + SELL_H + 12) {
+    // 回收条：卖出（场上/备战通吃）
+    selected = u; playSfx("Se_m_19", 0.4); sellSelected(); setStatus("已回收，金币入账");
+  } else if (bi >= 0) {
+    if (from.type === "field") {
+      if (!bench[bi]) {                // 拖回备战席=下阵
+        unfield(u); bench[bi] = u;
+        applyFightBuffs(); renderSyn(); playSfx("Se_m_21", 0.25);
+        setStatus(`${u.name} 已下阵回备战席`);
+      } else setStatus("该备战位已有棋子，放旁边空位");
+    } else if (bi !== from.slot) {     // 备战席内挪位/换位
+      const t = bench[bi]; bench[bi] = u; bench[from.slot] = t || null;
     }
-    refreshStats();
+  } else if (inDeploy) {
+    const occ = units.find(v => v !== u && v.col === col && v.row === row && v.side === "me" && v.state !== "dead");
+    const foeOcc = units.some(v => v !== u && v.col === col && v.row === row && v.state !== "dead" && v.side === "foe");
+    if (foeOcc) { setStatus("敌人占着这格，先打退它！"); }
+    else if (from.type === "bench") {
+      if (occ) {                       // 拖到己方棋子头上=替换：旧的回拖出的空槽
+        bench[from.slot] = null;
+        unfield(occ); bench[from.slot] = occ;
+        placeOnField(u, col, row);
+        applyFightBuffs(); renderSyn(); playSfx("Se_m_21", 0.3);
+        setStatus(`${u.name} 替下 ${occ.name}`);
+      } else if (tryDeploy(u, col, row)) { selected = null; playSfx("Se_m_21", 0.3); }
+    } else {                           // 场上拖场上
+      if (occ) {                       // 换位
+        const c0 = u.col, r0 = u.row;
+        occ.col = c0; occ.row = r0; occ.x = c0; occ.y = r0;
+        occ.nextActAt = performance.now() + 400;
+        placeOnField(u, col, row);
+        playSfx("Se_m_21", 0.25);
+      } else {                         // 移动
+        placeOnField(u, col, row);
+      }
+    }
+  } else if (from.type === "field") {
+    setStatus("拖到部署区换位，或拖到备战席下阵、回收区卖出");
+  } else {
+    setStatus("只能放进部署区（下三行虚线框内）");
   }
-  bDragU = null; bDragPos = null;
+  refreshStats();
 });
 cv.addEventListener("pointercancel", () => { bDragU = null; bDragPos = null; });
 cv.addEventListener("click", e => {
@@ -2573,7 +2630,7 @@ function drawDragGhost() {
   if (!bDragU || !bDragPos || !bDragMoved) return;
   const col = Math.floor(bDragPos.x / TILE), row = Math.floor(bDragPos.y / TILE);
   const inDeploy = col >= 0 && col < COLS && row >= ROWS - DEPLOY_ROWS && row < ROWS;
-  const free = inDeploy && !units.some(v => v.col === col && v.row === row && v.state !== "dead");
+  const free = inDeploy && !units.some(v => v !== bDragU && v.col === col && v.row === row && v.state !== "dead" && v.side === "foe");
   if (inDeploy) {
     ctx.fillStyle = free ? "rgba(184,137,28,.25)" : "rgba(160,40,24,.22)";
     ctx.fillRect(col * TILE, row * TILE, TILE, TILE);

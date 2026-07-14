@@ -6,10 +6,14 @@
 <title>汉字三国自走棋</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html { background: #1c1712; }
+  html {
+    background:
+      radial-gradient(ellipse 130% 80% at 50% 18%, rgba(122,96,58,.5) 0%, rgba(0,0,0,0) 60%),
+      linear-gradient(175deg, #4a3b26 0%, #33281a 45%, #221a10 100%);
+  }
   html, body { height: 100%; }
   body {
-    overflow: hidden; touch-action: manipulation;
+    overflow: hidden; touch-action: manipulation; background: transparent;
     display: flex; justify-content: center; align-items: flex-start;
     user-select: none; -webkit-user-select: none;
   }
@@ -20,7 +24,7 @@
     font-family: "Kaiti SC", "STKaiti", "KaiTi", "Songti SC", serif;
     display: flex; flex-direction: column; align-items: center;
     padding: 4px 8px 8px;
-    box-shadow: 0 0 60px rgba(0,0,0,.55);
+    box-shadow: 0 0 34px rgba(240,200,120,.14), 0 0 80px rgba(0,0,0,.6);
   }
   canvas { touch-action: none; }
 
@@ -178,6 +182,6 @@
     <button id="fight">出 征</button>
   </div>
   </div>
-  <script src="hanzi.js?v=rt11"></script>
+  <script src="hanzi.js?v=rt12"></script>
 </body>
 </html>
