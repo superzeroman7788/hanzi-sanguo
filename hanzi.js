@@ -956,6 +956,7 @@ function nextRound() {
   popups.length = 0; activeFx.length = 0; projectiles.length = 0;
   shreds.length = 0; ghosts.length = 0; inkSlashes.length = 0;
   waveTotal = wavesFor(round); wave = 0;
+  refreshCount = 0;
   regenGrid(true);
   selected = null; selItem = -1;
   // 直接开打：下一关无备战
@@ -1039,8 +1040,8 @@ function breach(u) {
 }
 
 // ---------- 字盘：多排连线找名字 ----------
-const GRID_COLS = 9, GRID_ROWS = 3;
-const G_CELL = 39, G_GAP = 3, G_PAD = 3;
+const GRID_COLS = 8, GRID_ROWS = 3;
+const G_CELL = 45, G_GAP = 3, G_PAD = 3;
 const HERO_PRICE = 5;
 let grid = [];                 // grid[r][c] = {type:"name"|"class", char, clsId?}
 let gridPath = [];             // 选字序列 [{r,c}]
@@ -1169,11 +1170,19 @@ function buryWeaponName() {
   }
   if (best) best.forEach(([r, c], i) => grid[r][c] = { type: "wep", char: w.chars[i] });
 }
+let refreshCount = 0;      // 本关已手动换盘次数
+let panLines = 0;          // 本盘成功连线次数
+let panCleared = false;    // 本盘清盘奖已发
+const refreshCost = () => Math.min(4, 1 + refreshCount);
 function regenGrid(free) {
   if (!free) {
-    if (gold < 1 || phase !== "fight") return;
-    gold -= 1;
+    if (phase !== "fight") return;
+    const c = refreshCost();
+    if (gold < c) { showGridToast(`还差 ${c - gold} 金`); playSfx("Se_m_19", 0.3); return; }
+    gold -= c;
+    refreshCount++;
   }
+  panLines = 0; panCleared = false;
   grid = [];
   for (let r = 0; r < GRID_ROWS; r++) {
     grid.push([]);
@@ -1188,13 +1197,19 @@ function regenGrid(free) {
 }
 // 消掉路径上的字：列内带缓动下落，顶部补新字滑入，消位留金墨印痕
 const gridMarks = [];   // 消字印痕 {x,y,born}
+let gridWave = null;   // {born, cr, cc} 成名波浪
 function consumePath(path) {
   const now = performance.now();
-  for (const p of path) {
-    const { x, y } = cellXY(p.r, p.c);
-    gridMarks.push({ x: x + G_CELL / 2, y: y + G_CELL / 2, born: now });
-    grid[p.r][p.c] = null;
+  panLines++;
+  if (path.length >= 2) {
+    const mid = path[Math.floor(path.length / 2)];
+    gridWave = { born: now, cr: mid.r, cc: mid.c };
   }
+  path.forEach((p, i) => {
+    const { x, y } = cellXY(p.r, p.c);
+    gridMarks.push({ x: x + G_CELL / 2, y: y + G_CELL / 2, born: now + i * 45 });
+    grid[p.r][p.c] = null;
+  });
   for (let c = 0; c < GRID_COLS; c++) {
     const col = [];
     for (let r = GRID_ROWS - 1; r >= 0; r--) if (grid[r][c]) col.push({ cell: grid[r][c], fromR: r });
@@ -1211,6 +1226,14 @@ function consumePath(path) {
     }
   }
   computeHints();
+  // 清盘奖：盘中可连名字全部挖尽（至少连过2次）→ 奖金+免费新盘
+  if (phase === "fight" && !panCleared && panLines >= 2 && hintCells.size === 0) {
+    panCleared = true;
+    gold += 2;
+    showGridToast("一盘挖尽！+2金 · 免费新盘");
+    playSfx("Se_m_28", 0.45);
+    setTimeout(() => { if (phase === "fight") regenGrid(true); refreshStats(); }, 900);
+  }
 }
 function pathString(path) { return path.map(p => grid[p.r][p.c].char).join(""); }
 function heroByString(s) {
@@ -1473,6 +1496,7 @@ function drawGrid(now) {
   // 消字印痕：金环+墨圈扩散
   for (let i = gridMarks.length - 1; i >= 0; i--) {
     const m = gridMarks[i];
+    if (now < m.born) continue;
     const t = (now - m.born) / 400;
     if (t >= 1) { gridMarks.splice(i, 1); continue; }
     gtx.globalAlpha = 1 - t;
@@ -1488,6 +1512,16 @@ function drawGrid(now) {
     const cell = grid[r] && grid[r][c];
     if (!cell) continue;
     let { x, y } = cellXY(r, c);
+    // 成名波浪：金光从路径中心扩散，全盘字块依次弹跳
+    if (gridWave) {
+      const wAge = (now - gridWave.born) / 1000;
+      if (wAge > 1.4) gridWave = null;
+      else {
+        const wDist = Math.hypot(r - gridWave.cr, c - gridWave.cc);
+        const wt = wAge * 7 - wDist * 0.8;
+        if (wt > 0 && wt < 1.1) y -= Math.sin(Math.min(1, wt) * Math.PI) * 7 * Math.max(0, 1 - wAge * 0.6);
+      }
+    }
     // 掉落动画：缓动+轻微回弹
     if (cell.drop) {
       const dt = (now - cell.drop.born) / 320;
@@ -1824,6 +1858,7 @@ function refreshStats() {
   const streakEl = document.getElementById("streak");
   streakEl.textContent = winStreak > 0 ? winStreak + "连胜" : loseStreak > 0 ? loseStreak + "连败" : "—";
   document.getElementById("buyxp").textContent = level >= LEVEL_MAX ? `Lv${level}·满级` : `经验4金·Lv${level}(${xp}/${XP_NEED[level]})`;
+  document.getElementById("refresh").textContent = `换一盘${refreshCost()}金`;
   document.getElementById("fight").disabled = phase !== "ready";
   renderHint();
 }
