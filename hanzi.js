@@ -1566,6 +1566,15 @@ function drawGrid(now) {
     gtx.font = `bold ${Math.round(G_CELL * 0.56)}px "Kaiti SC", "STKaiti", "KaiTi", serif`;
     gtx.textAlign = "center"; gtx.textBaseline = "middle";
     gtx.fillText(cell.char, x + G_CELL / 2, y + G_CELL / 2 + 1);
+    // 兵种字：右下角小数字标价格
+    if (cell.type === "class") {
+      const C = CLASS_CHARS.find(v => v.id === cell.clsId);
+      if (C) {
+        gtx.fillStyle = "#9a8050";
+        gtx.font = "bold 10px sans-serif";
+        gtx.fillText(C.cost, x + G_CELL - 8, y + G_CELL - 8);
+      }
+    }
   }
   // 中央大提示（军资不足等）
   if (gridToast) {
