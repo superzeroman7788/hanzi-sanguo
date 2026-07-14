@@ -22,12 +22,12 @@ const SHOP_ODDS = {
   5: [60, 28, 10, 2], 6: [50, 30, 15, 5], 7: [40, 32, 20, 8],
   8: [32, 30, 26, 12], 9: [26, 28, 29, 17], 10: [20, 26, 32, 22],
 };
-const BENCH_TILE = 38, BENCH_GAP = 4;
-const BENCH_X0 = (COLS * TILE - (BENCH_SIZE * BENCH_TILE + (BENCH_SIZE - 1) * BENCH_GAP)) / 2;
+const BENCH_TILE = 40, BENCH_GAP = 3;
+const BENCH_X0 = (COLS * TILE - (9 * BENCH_TILE + 8 * BENCH_GAP)) / 2;   // 含回收桶共9格
 const BENCH_Y0 = ROWS * TILE + 8;
+const BIN_SLOT = 8;   // 备战条第9格=回收桶
 // 回收条：选中棋子后点这里卖出
-const SELL_Y0 = BENCH_Y0 + BENCH_TILE + 6, SELL_H = 26;
-const CANVAS_H = SELL_Y0 + SELL_H + 4;
+const CANVAS_H = BENCH_Y0 + BENCH_TILE + 8;
 
 // ---------- 职业 ----------
 const CLASSES = {
@@ -1039,8 +1039,8 @@ function breach(u) {
 }
 
 // ---------- 字盘：多排连线找名字 ----------
-const GRID_COLS = 7, GRID_ROWS = 4;
-const G_CELL = 45, G_GAP = 4, G_PAD = 4;
+const GRID_COLS = 9, GRID_ROWS = 3;
+const G_CELL = 39, G_GAP = 3, G_PAD = 3;
 const HERO_PRICE = 5;
 let grid = [];                 // grid[r][c] = {type:"name"|"class", char, clsId?}
 let gridPath = [];             // 选字序列 [{r,c}]
@@ -1526,7 +1526,7 @@ function drawGrid(now) {
     gtx.stroke();
     // 字
     gtx.fillStyle = cell.type === "name" ? "#4a3020" : "#241b12";
-    gtx.font = 'bold 25px "Kaiti SC", "STKaiti", "KaiTi", serif';
+    gtx.font = `bold ${Math.round(G_CELL * 0.56)}px "Kaiti SC", "STKaiti", "KaiTi", serif`;
     gtx.textAlign = "center"; gtx.textBaseline = "middle";
     gtx.fillText(cell.char, x + G_CELL / 2, y + G_CELL / 2 + 1);
     // 将印 / 兵角标+价格
@@ -1820,28 +1820,24 @@ function refreshStats() {
   document.getElementById("php").textContent = Math.max(0, playerHp);
   document.getElementById("gold").textContent = gold;
   document.getElementById("interest").textContent = interest();
-  document.getElementById("level").textContent = level;
-  document.getElementById("xp").textContent = level >= LEVEL_MAX ? "MAX" : xp + "/" + XP_NEED[level];
+  document.getElementById("waveInfo").textContent = phase === "fight" ? `波${wave}/${waveTotal}` : phase === "ready" ? "备战" : "结算";
   const streakEl = document.getElementById("streak");
   streakEl.textContent = winStreak > 0 ? winStreak + "连胜" : loseStreak > 0 ? loseStreak + "连败" : "—";
-  document.getElementById("pop").textContent = fieldCount() + "/" + popCap();
+  document.getElementById("buyxp").textContent = level >= LEVEL_MAX ? `Lv${level}·满级` : `经验4金·Lv${level}(${xp}/${XP_NEED[level]})`;
   document.getElementById("fight").disabled = phase !== "ready";
-  document.getElementById("sell").style.display = selected && phase === "shop" ? "" : "none";
-  if (selected) document.getElementById("sell").textContent = `出售${selected.name}（+${sellValue(selected)}金）`;
+  renderHint();
 }
 const GRID_HINT_DEF = "👆 连相邻字凑名将 · ⚔连兵器名得神兵 · 直线8折 · 发光有路";
 let lastHintMsg = GRID_HINT_DEF;
 function renderHint() {
   const gh = document.getElementById("gridHint");
   if (!gh) return;
-  gh.textContent = `💰${gold} ❤${Math.max(0, playerHp)} · ${lastHintMsg}`;
+  gh.textContent = `💰${gold} 人${fieldCount()}/${popCap()} · ${lastHintMsg}`;
   gh.classList.toggle("err", /不足|已满/.test(lastHintMsg));
 }
 function setStatus(msg) {
   lastHintMsg = (phase === "fight" && msg) ? msg : GRID_HINT_DEF;
   renderHint();
-  document.getElementById("statusText").textContent =
-    msg || (phase === "ready" ? `第${round}关共${waveTotal}波 · 点「出征」开战，边打边买将布阵！` : `第 ${wave}/${waveTotal} 波 · 守住底线！点字买将，随时上阵`);
 }
 
 // ---------- 装备穿戴 ----------
@@ -1869,7 +1865,7 @@ function benchSlotAt(x, y) {
   if (y < BENCH_Y0 - 6 || y > BENCH_Y0 + BENCH_TILE + 10) return -1;
   const pitch = BENCH_TILE + BENCH_GAP;
   const i = Math.round((x - BENCH_X0 - BENCH_TILE / 2) / pitch);
-  if (i < 0 || i >= BENCH_SIZE) return -1;
+  if (i < 0 || i > BIN_SLOT) return -1;
   return i;
 }
 function handlePick(u) {
@@ -1923,8 +1919,8 @@ cv.addEventListener("pointerup", e => {
   const col = Math.floor(p.x / TILE), row = Math.floor(p.y / TILE);
   const bi = benchSlotAt(p.x, p.y);
   const inDeploy = col >= 0 && col < COLS && row >= ROWS - DEPLOY_ROWS && row < ROWS;
-  if (p.y >= SELL_Y0 && p.y <= SELL_Y0 + SELL_H + 12) {
-    // 回收条：卖出（场上/备战通吃）
+  if (bi === BIN_SLOT) {
+    // 回收桶格：卖出（场上/备战通吃）
     selected = u; playSfx("Se_m_19", 0.4); sellSelected(); setStatus("已回收，金币入账");
   } else if (bi >= 0) {
     if (from.type === "field") {
@@ -1972,13 +1968,12 @@ cv.addEventListener("click", e => {
   if (phase !== "fight") return;
   const { x, y } = canvasPos(e);
 
-  // 回收条：选中即点即卖（战斗中随时回收）
-  if (y >= SELL_Y0 && y <= SELL_Y0 + SELL_H) {
+  const bi = benchSlotAt(x, y);
+  if (bi === BIN_SLOT) {
     if (selected) { playSfx("Se_m_19", 0.4); sellSelected(); setStatus("已回收，金币入账"); }
+    else setStatus("先点棋子再点桶=卖出，或直接拖进桶");
     return;
   }
-
-  const bi = benchSlotAt(x, y);
   if (bi >= 0) {
     const u = bench[bi];
     if (u && tryEquip(u)) return;
@@ -2092,31 +2087,33 @@ function drawBoard() {
     ctx.fillStyle = v;
     ctx.fillRect(0, 0, COLS * TILE, ROWS * TILE);
   }
-  // 备战席：深色木案
-  ctx.fillStyle = "#3a2f24";
-  ctx.fillRect(0, BENCH_Y0 - 6, cv.width, BENCH_TILE + 12);
+  // 备战抽屉：亮色木案 + 8棋格 + 回收桶格
+  ctx.fillStyle = "#cdbb96";
+  ctx.fillRect(0, BENCH_Y0 - 8, cv.width, BENCH_TILE + 16);
+  ctx.fillStyle = "rgba(58,47,36,.35)";
+  ctx.fillRect(0, BENCH_Y0 - 8, cv.width, 2);
   for (let i = 0; i < BENCH_SIZE; i++) {
     const bx = BENCH_X0 + i * (BENCH_TILE + BENCH_GAP);
-    ctx.fillStyle = "#5a4a34";
+    ctx.fillStyle = "#b7a37c";
     ctx.fillRect(bx, BENCH_Y0, BENCH_TILE, BENCH_TILE);
-    ctx.strokeStyle = "#2a2018";
+    ctx.strokeStyle = "#8a7550";
     ctx.strokeRect(bx + 0.5, BENCH_Y0 + 0.5, BENCH_TILE - 1, BENCH_TILE - 1);
   }
-  // 回收条（战斗中随时回收）
-  if (phase === "fight" || phase === "ready") {
-    const hot = !!selected;
-    ctx.fillStyle = hot ? "rgba(160,40,24,.94)" : "rgba(90,74,52,.55)";
-    roundRect(4, SELL_Y0, cv.width - 8, SELL_H, 8);
-    ctx.fill();
-    ctx.strokeStyle = hot ? "#5a140c" : "#3a2f24";
-    ctx.lineWidth = 2;
-    ctx.stroke();
+  {
+    const bx = BENCH_X0 + BIN_SLOT * (BENCH_TILE + BENCH_GAP);
+    const hot = !!selected || !!bDragU;
+    ctx.fillStyle = hot ? "#a02818" : "#8a7458";
+    ctx.fillRect(bx, BENCH_Y0, BENCH_TILE, BENCH_TILE);
+    ctx.strokeStyle = hot ? "#5a140c" : "#6a5a40";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(bx + 0.75, BENCH_Y0 + 0.75, BENCH_TILE - 1.5, BENCH_TILE - 1.5);
+    ctx.lineWidth = 1;
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.font = 'bold 14px "Kaiti SC", "STKaiti", "KaiTi", serif';
-    ctx.fillStyle = hot ? "#f8e8c8" : "rgba(246,236,212,.8)";
-    ctx.fillText(
-      hot ? `♻ 点此回收 ${selected.name}（+${sellValue(selected)}金）` : "♻ 回收区：先点棋子，再点这里卖出",
-      cv.width / 2, SELL_Y0 + SELL_H / 2 + 1);
+    ctx.font = 'bold 17px "Kaiti SC", "STKaiti", "KaiTi", serif';
+    ctx.fillStyle = "#f4e4c4";
+    ctx.fillText("卖", bx + BENCH_TILE / 2, BENCH_Y0 + BENCH_TILE / 2 - 5);
+    ctx.font = "9px sans-serif";
+    ctx.fillText(hot && selected ? `+${sellValue(selected)}金` : "回收", bx + BENCH_TILE / 2, BENCH_Y0 + BENCH_TILE - 9);
     ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
   }
 }
@@ -2668,7 +2665,6 @@ document.getElementById("fight").onclick = () => {
   nextSpawnAt = performance.now() + 800;
   for (const u of alive("me")) u.nextActAt = performance.now() + Math.random() * 600;
 };
-document.getElementById("sell").onclick = sellSelected;
 document.getElementById("refresh").onclick = () => regenGrid(false);
 document.getElementById("buyxp").onclick = buyXp;
 const spdBtn = document.getElementById("speed");
@@ -2702,7 +2698,7 @@ function fitScreen() {
   const vw = vv ? vv.width : window.innerWidth;
   const vh = vv ? vv.height : window.innerHeight;
   const h = app.scrollHeight;
-  const sc = Math.min(vw / 375, vh / h, 1.1);
+  const sc = Math.min(vw / 375, vh / h, 1.25);
   app.style.transform = `scale(${sc})`;
 }
 window.addEventListener("resize", fitScreen);

@@ -23,46 +23,27 @@
     color: #4a3a26;
     font-family: "Kaiti SC", "STKaiti", "KaiTi", "Songti SC", serif;
     display: flex; flex-direction: column; align-items: center;
-    padding: 4px 8px 8px;
+    padding: 0 0 max(6px, env(safe-area-inset-bottom));
     box-shadow: 0 0 34px rgba(240,200,120,.14), 0 0 80px rgba(0,0,0,.6);
   }
   canvas { touch-action: none; }
 
-  /* 顶栏：卷轴条 */
+  /* 顶栏：单行信息条（全出血） */
   #topbar {
-    width: 100%; position: relative;
-    background: linear-gradient(180deg, #f6ecd4, #ecdfc0);
-    border: 2px solid #3a2f24; border-radius: 8px 10px 9px 7px;
-    box-shadow: 2px 3px 0 rgba(58,47,36,.22);
-    padding: 4px 10px 3px; font-size: 12px; line-height: 1.55; color: #4a3a26;
+    width: 100%;
+    background: linear-gradient(180deg, #2e2418, #3a2d1c);
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 4px 10px; font-size: 12.5px; line-height: 1.4; color: #e8d8b0;
+    border-bottom: 1.5px solid #8a6a1c;
   }
-  #topbar .row { display: flex; justify-content: space-between; }
-  #topbar b { color: #8a2818; }
-  #topbar::after {
-    content: "将"; position: absolute; right: -6px; top: -8px;
-    width: 30px; height: 30px; background: #a02818; color: #f4e0c0;
-    border-radius: 5px 7px 6px 5px; transform: rotate(6deg);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 16px; box-shadow: 1px 2px 3px rgba(0,0,0,.3);
-  }
-  #status {
-    width: 100%; min-height: 18px; font-size: 11px; color: #6a5a3e;
-    padding: 2px 2px; display: flex; align-items: center; justify-content: space-between; gap: 6px;
-  }
-  #sell {
-    font: bold 13px/1 inherit; padding: 6px 14px;
-    border: 1.5px solid #5a140c; border-radius: 6px 8px 7px 6px;
-    background: linear-gradient(180deg, #a02818, #7a1c10); color: #f8e8c8;
-    box-shadow: 0 3px 8px rgba(120,30,16,.4); cursor: pointer;
-  }
+  #topbar b { color: #f4c860; }
 
-  /* 棋盘 */
+  /* 棋盘：全出血无边框 */
   #boardBox { position: relative; width: 100%; }
   canvas {
     display: block; width: 100%;
-    border: 2.5px solid #3a2f24; border-radius: 8px 6px 9px 7px;
+    border: 0; border-radius: 0;
     background: #e6d7b5;
-    box-shadow: inset 0 0 24px rgba(90,65,30,.2), 2px 4px 0 rgba(58,47,36,.2);
   }
 
   /* 羁绊徽章：宣纸签 */
@@ -81,7 +62,7 @@
   .badge small { display: block; font-size: 10px; }
 
   /* 装备库 */
-  #invRow { width: 100%; display: none; gap: 6px; padding: 5px 0; align-items: center; }
+  #invRow { width: 100%; display: none; gap: 6px; padding: 4px 8px; align-items: center; }
   #invRow.show { display: flex; }
   #invRow span { font-size: 11px; color: #8a7550; }
   #invRow img {
@@ -92,19 +73,18 @@
   #invRow img.sel { border-color: #b8891c; box-shadow: 0 0 10px rgba(212,164,52,.7); }
 
   /* 字盘：字案 */
-  #gridWrap { width: 100%; margin-top: 3px; position: relative; }
+  #gridWrap { width: 100%; margin-top: 0; position: relative; }
   #gridCv {
     display: block; width: 100%;
-    border: 2.5px solid #3a2f24; border-radius: 9px 7px 8px 10px;
+    border: 0; border-top: 1.5px solid #8a7550; border-radius: 0;
     background: linear-gradient(180deg, #f2e7cd, #e9dbba);
-    box-shadow: 2px 4px 0 rgba(58,47,36,.22);
     touch-action: none;
   }
   #gridHint { text-align: center; font-size: 10.5px; color: #8a7550; padding: 2px 0 1px; white-space: nowrap; overflow: hidden; }
   #gridHint.err { color: #a02818; font-weight: bold; }
 
   /* 按钮行 */
-  #btnRow { width: 100%; display: flex; gap: 6px; margin-top: 5px; }
+  #btnRow { width: 100%; display: flex; gap: 6px; margin-top: 4px; padding: 0 6px; }
   button {
     font: bold 13px/1.3 inherit; letter-spacing: 1px;
     padding: 8px 0; border: 2px solid #3a2f24; border-radius: 8px 6px 9px 7px;
@@ -145,20 +125,10 @@
 <body>
   <div id="app">
   <div id="topbar">
-    <div class="row">
-      <span>关卡 <b id="round">1</b>/10</span>
-      <span>❤️ <b id="php">100</b></span>
-      <span>💰 <b id="gold">0</b><span style="font-size:11px">(息<span id="interest">0</span>)</span></span>
-      <span>连胜 <b id="streak">—</b></span>
-    </div>
-    <div class="row">
-      <span>等级 <b id="level">5</b>　经验 <b id="xp">0/8</b></span>
-      <span>人口 <b id="pop">0/5</b></span>
-    </div>
-  </div>
-  <div id="status">
-    <span id="statusText"></span>
-    <button id="sell" style="display:none">出售</button>
+    <span>关 <b id="round">1</b>/10 · <span id="waveInfo">备战</span></span>
+    <span>❤️<b id="php">100</b></span>
+    <span>💰<b id="gold">0</b><span style="font-size:10px">(息<span id="interest">0</span>)</span></span>
+    <span><b id="streak">—</b></span>
   </div>
   <div id="boardBox">
     <canvas id="cv"></canvas>
@@ -182,6 +152,6 @@
     <button id="fight">出 征</button>
   </div>
   </div>
-  <script src="hanzi.js?v=rt14"></script>
+  <script src="hanzi.js?v=rt15"></script>
 </body>
 </html>
