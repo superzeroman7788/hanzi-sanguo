@@ -563,7 +563,15 @@ function dealDamage(att, tgt, mult, opt = {}) {
   const counter = false;
   const crit = Math.random() < (att.crit || 0.12);
   let dmg = Math.max(3, att.atk * mult * 1.3 - (opt.trueDmg ? 0 : tgt.def * 0.5));
-  if (tgt.shield && opt.ranged) { dmg *= 0.4; popup(tgt, "盾挡", "#6a7a9a"); }
+  if (tgt.shield && opt.ranged) {
+    dmg *= 0.4;
+    popup(tgt, "盾挡", "#6a7a9a");
+    for (let i = 0; i < 2; i++) deflects.push({
+      x: tgt.x * TILE + TILE / 2, y: tgt.y * TILE + TILE / 2 - 8,
+      ang: -Math.PI / 2 + (Math.random() - 0.5) * 2.2, born: performance.now() + i * 40,
+    });
+    thock(520, 0.04, 0.18);
+  }
   if (att.side === "foe" && att.banner !== true && alive("foe").some(b => b.banner && b !== att && b.col === att.col)) dmg *= 1.2;   // 旗令：同路敌军增伤
   dmg *= (0.9 + Math.random() * 0.2);
   dmg *= 1 + Math.max(0, battleCycles - 10) * 0.15;
@@ -572,6 +580,10 @@ function dealDamage(att, tgt, mult, opt = {}) {
   dmg = Math.round(dmg);
   tgt.hp -= dmg;
   tgt.flashUntil = performance.now() + 130;
+  // 受击后仰挤压；我方刀兵=格挡（幅度小回弹硬+盾光+锵声）
+  const isBlock = tgt.side === "me" && tgt.cls === "infantry" && !tgt.hero;
+  tgt.hitAnim = { born: performance.now(), dir: Math.sign(tgt.row - att.row) || (tgt.side === "me" ? 1 : -1), block: isBlock };
+  if (isBlock) thock(760, 0.045, 0.22);
   if (phase === "fight") spawnShreds(tgt, 2);   // 受击碎纸
   gainRage(tgt, 16);
   const isHeroHit = !!att.hero;
@@ -849,6 +861,7 @@ function unitActRT(u) {
       if (hits.length) {
         faceTo(u, u.col, u.row - 1);
         u.state = "attack"; u.animStart = performance.now();
+        pierceLines.push({ col: u.col, y0: u.row, y1: Math.max(0, u.row - 2.2), born: performance.now() });
         for (const f of hits) dealDamage(u, f, 1);
         gainRage(u, 26);
         return "attack";
@@ -1177,6 +1190,8 @@ function spawnOneEnemy(q) {
 }
 // 敌人触底：扣玩家血
 let breachCount = 0, lostCol = -1, lostBy = "", lostTip = "";
+let deflects = [];      // 盾挡箭偏折 {x,y,ang,born}
+let pierceLines = [];   // 枪贯穿光线 {col,y0,y1,born}
 let bottomFlashUntil = 0;
 let battleSlowUntil = 0;   // 武将登场子弹时间：敌军冻结
 let tutorialHold = false;  // 第1关：完成第一次连线前敌军列阵不动
@@ -2554,15 +2569,27 @@ function drawTile(u, px, py, now, sizeBase) {
   let breathe = 0;
   if (u.state === "stand" && phase !== "over") breathe = Math.sin(now / 470 + u.uid * 1.7) * 1.6;
 
-  // 攻击顶牌动画：朝目标方向位移
+  // 攻击顶牌动画：朝目标方向位移（枪突刺更猛）
   let ox = 0, oy = 0;
   if (u.state === "attack") {
     const el = now - u.animStart;
     const k = el < 150 ? el / 150 : el < 300 ? (300 - el) / 150 : 0;
-    const d = 9 * k;
+    const d = (u.cls === "lancer" && !u.hero ? 16 : 9) * k;
     if (u.dir === "up") oy = -d; else if (u.dir === "down") oy = d;
     else if (u.dir === "left") ox = -d; else ox = d;
     if (el > 440) u.state = "stand";
+  }
+  // 受击后仰+挤压（刀兵格挡：幅度小、回弹快）
+  let hitK = 0, blockGlow = 0;
+  if (u.hitAnim) {
+    const hel = now - u.hitAnim.born;
+    const span = u.hitAnim.block ? 220 : 300;
+    if (hel > span) u.hitAnim = null;
+    else {
+      hitK = hel < span * 0.3 ? hel / (span * 0.3) : (span - hel) / (span * 0.7);
+      oy += hitK * (u.hitAnim.block ? 3 : 6) * u.hitAnim.dir;
+      if (u.hitAnim.block) blockGlow = hitK;
+    }
   }
   // 死亡：灰化下沉淡出
   let alpha = 1, deadShift = 0, grey = false;
@@ -2573,7 +2600,9 @@ function drawTile(u, px, py, now, sizeBase) {
     deadShift = el * 0.02;
     grey = true;
   }
-  const X = px + ox - half, Y = py + oy - half + deadShift + breathe;
+  const sqW = 1 + hitK * 0.07, sqH = 1 - hitK * 0.07;
+  const SW = S * sqW, SH = S * sqH;
+  const X = px + ox - SW / 2, Y = py + oy - SH / 2 + deadShift + breathe + (S - SH) / 2;
   const CY = py + oy + deadShift + breathe;
 
   ctx.save();
@@ -2581,7 +2610,7 @@ function drawTile(u, px, py, now, sizeBase) {
   // 硬阴影（手作感）
   if (!grey) {
     ctx.fillStyle = "rgba(58,47,36,.24)";
-    roundRectU(X + 2, Y + 3, S, S, rs);
+    roundRectU(X + 2, Y + 3, SW, SH, rs);
     ctx.fill();
   }
   // 英雄常驻金晕（呼吸）
@@ -2600,15 +2629,23 @@ function drawTile(u, px, py, now, sizeBase) {
   const grad = ctx.createLinearGradient(X, Y, X + S, Y + S);
   grad.addColorStop(0, g1); grad.addColorStop(1, g2);
   ctx.fillStyle = grad;
-  roundRectU(X, Y, S, S, rs);
+  roundRectU(X, Y, SW, SH, rs);
   ctx.fill();
   ctx.shadowBlur = 0;
   ctx.lineWidth = u.hero ? 2.5 : 2;
   ctx.strokeStyle = border;
   ctx.stroke();
+  if (blockGlow > 0) {   // 刀兵格挡：顶缘白金弧光
+    ctx.strokeStyle = `rgba(255,244,200,${0.85 * blockGlow})`;
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.arc(px + ox, CY, S * 0.62, -Math.PI * 0.82, -Math.PI * 0.18);
+    ctx.stroke();
+    ctx.lineWidth = 1;
+  }
   if (whiten) {
     ctx.fillStyle = "rgba(255,255,255,.65)";
-    roundRectU(X, Y, S, S, rs);
+    roundRectU(X, Y, SW, SH, rs);
     ctx.fill();
   }
   // 字
@@ -2624,6 +2661,33 @@ function drawTile(u, px, py, now, sizeBase) {
   } else {
     ctx.font = `bold ${Math.round(S * 0.62)}px "Kaiti SC", "STKaiti", "KaiTi", serif`;
     ctx.fillText(u.char, px + ox, CY + 1);
+  }
+  // 盾兵形态：牌前缘一面小盾（形态即说明）
+  if (u.shield && !grey) {
+    const shx = px + ox, shy = Y + SH + 2;
+    ctx.save();
+    ctx.fillStyle = "#7a6248";
+    ctx.strokeStyle = "#3a2c1a"; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(shx - 9, shy - 14); ctx.lineTo(shx + 9, shy - 14);
+    ctx.lineTo(shx + 7, shy - 2); ctx.lineTo(shx, shy + 3); ctx.lineTo(shx - 7, shy - 2);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = "#c8a860"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(shx, shy - 12); ctx.lineTo(shx, shy + 1); ctx.stroke();
+    ctx.restore();
+  }
+  // 旗兵形态：牌顶一面小令旗
+  if (u.banner && !grey) {
+    const fx = px + ox + S * 0.28, fy = Y - 2;
+    ctx.save();
+    ctx.strokeStyle = "#3a2c1a"; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx, fy - 16); ctx.stroke();
+    const wav = Math.sin(now / 180 + u.uid) * 2;
+    ctx.fillStyle = "#a02818";
+    ctx.beginPath();
+    ctx.moveTo(fx, fy - 16); ctx.lineTo(fx + 12, fy - 13 + wav); ctx.lineTo(fx, fy - 9);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
   }
   // 敌军"曹"军旗角标
   if (u.side === "foe" && !u.hero && !grey) {
@@ -3030,8 +3094,52 @@ function render(now) {
     console.error("渲染帧异常(已跳过):", e);
     try { ctx.restore(); } catch (e2) {}
   }
-  try { drawDragGhost(); drawRollLogs(); } catch (e) {}
+  try { drawDragGhost(); drawRollLogs(); drawDeflects(); drawPierceLines(); } catch (e) {}
   requestAnimationFrame(render);
+}
+// 盾挡箭偏折：小箭弹飞旋转渐隐
+function drawDeflects() {
+  const now = performance.now();
+  deflects = deflects.filter(d => now - d.born < 340 && now >= d.born - 60);
+  for (const d of deflects) {
+    if (now < d.born) continue;
+    const t = (now - d.born) / 340;
+    const dist2 = 26 * t;
+    const x = d.x + Math.cos(d.ang) * dist2, y = d.y + Math.sin(d.ang) * dist2 + 14 * t * t;
+    ctx.save();
+    ctx.globalAlpha = 1 - t;
+    ctx.translate(x, y);
+    ctx.rotate(d.ang + t * 5);
+    ctx.strokeStyle = "#6a5030"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-6, 0); ctx.lineTo(6, 0); ctx.stroke();
+    ctx.fillStyle = "#f0c860";
+    ctx.fillRect(4, -1, 3, 2);
+    ctx.restore();
+  }
+}
+// 枪贯穿光线：沿列一道突刺光，端点迸光
+function drawPierceLines() {
+  const now = performance.now();
+  pierceLines = pierceLines.filter(p => now - p.born < 220);
+  for (const p of pierceLines) {
+    const t = (now - p.born) / 220;
+    const x = p.col * TILE + TILE / 2;
+    const yFrom = (p.y0 + 0.2) * TILE, yTo = (p.y1 + 0.5) * TILE;
+    const reach = yFrom + (yTo - yFrom) * Math.min(1, t * 2.2);
+    ctx.save();
+    ctx.globalAlpha = 1 - t;
+    ctx.strokeStyle = "#8a6a10";
+    ctx.lineWidth = 4 * (1 - t) + 1;
+    ctx.beginPath(); ctx.moveTo(x, yFrom); ctx.lineTo(x, reach); ctx.stroke();
+    ctx.strokeStyle = "rgba(255,240,190,.9)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(x, yFrom); ctx.lineTo(x, reach); ctx.stroke();
+    if (t < 0.5) {
+      ctx.fillStyle = "#f4d880";
+      ctx.beginPath(); ctx.arc(x, reach, 4 * (1 - t * 2) + 1, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
 }
 // 滚木反杀演出：木桩从城墙沿列碾到顶
 function drawRollLogs() {
