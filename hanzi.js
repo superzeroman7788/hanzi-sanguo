@@ -91,6 +91,13 @@ const CAO_GENERALS = [
   { id: "simayi",     name: "司马懿", cls: "priest",   faction: "魏", skillName: "深谋远虑" },
 ];
 const CAO_BOSS = { id: "caocao", name: "曹操", cls: "lancer", faction: "魏", skillName: "挟天子令诸侯" };
+// 敌方专用小兵（字库与我方刀枪弓医骑分离）：卒=杂兵海 马=快速兵 校=血厚精英
+const FOE_TYPES = [
+  { id: "zu",   char: "卒", cls: "infantry", cost: 1 },
+  { id: "ma",   char: "马", cls: "cavalry",  cost: 2 },
+  { id: "xiao", char: "校", cls: "infantry", cost: 3, hpM: 1.7, slow: true },
+];
+const defOfFoeType = t => ({ kind: "class", id: "f_" + t.id, char: t.char, cls: t.cls, cost: t.cost, hpM: t.hpM || 1, slow: !!t.slow });
 // 神兵：连出武器名获得装备；装给本命武将触发共鸣
 const WEAPONS = [
   { id: "shemao",    name: "丈八蛇矛",   icon: "26", hero: "zhangfei" },
@@ -402,7 +409,7 @@ function makeUnit(def, side, col, row, star = 1, items = []) {
   const foeHpM = side === "foe" ? Math.min(1, 0.5 + round * 0.05) : 1;
   const foeAtkM = side === "foe" ? Math.min(1, 0.55 + round * 0.045) : 1;
   const base = {
-    hp: Math.round(C.hp * m * foeHpM), atk: Math.round(C.atk * m * foeAtkM),
+    hp: Math.round(C.hp * m * foeHpM * (def.hpM || 1)), atk: Math.round(C.atk * m * foeAtkM),
     def: C.def + (def.kind === "hero" ? 2 : 0), rng: C.rng, step: C.step,
     hits: C.hits || 1, dodge: C.dodge || 0, heal: C.heal ? Math.round(C.heal * m) : 0,
   };
@@ -411,7 +418,7 @@ function makeUnit(def, side, col, row, star = 1, items = []) {
     kind: def.kind, defId: def.id, char: def.char || null,
     name: def.kind === "hero" ? def.name : def.char,
     cls: def.cls, cost: def.cost || 2, faction: def.faction || null,
-    skillName: def.skillName || null, hero: def.kind === "hero",
+    skillName: def.skillName || null, hero: def.kind === "hero", slow: !!def.slow,
     side, star, col, row, x: col, y: row,
     base, items: items.slice(0, 2),
     rage: RAGE_START, stun: 0,
@@ -914,7 +921,7 @@ function unitActRT(u) {
 const RT_DELAY = { heroskill: 1500, skill: 1400, attack: 1050, heal: 1250, move: 1350, stun: 900, idle: 420 };
 function actDelay(u, kind) {
   let d = RT_DELAY[kind] || 800;
-  if (u.side === "foe" && kind === "move") d = 1600 - Math.min(500, round * 45) + (round === 1 ? 200 : 0);
+  if (u.side === "foe" && kind === "move") d = (1600 - Math.min(500, round * 45) + (round === 1 ? 200 : 0)) * (u.slow ? 1.3 : 1);
   if (u.cls === "cavalry" && kind === "move") d *= 0.7;
   return d * speedMult;
 }
@@ -1058,7 +1065,7 @@ function queueWave() {
   if (round >= 3) mainCols.push(Math.floor(Math.random() * COLS));
   let budget = Math.round((4 + round * 2.6) * (1 + (wave - 1) * 0.45) * (round === 1 ? 0.7 : 1));
   const countCap = Math.min(12, 3 + round);
-  const pool = CLASS_CHARS.filter(c => c.cls !== "priest" && c.cost <= Math.min(3, 1 + Math.floor(round / 2)));
+  const pool = FOE_TYPES.filter(t => t.cost <= Math.min(3, 1 + Math.floor(round / 2)));
   let guard = 60, placed = 0;
   while (budget >= 1 && placed < countCap && guard--) {
     const C = pool[Math.floor(Math.random() * pool.length)];
@@ -1067,7 +1074,7 @@ function queueWave() {
     else if (round >= 2 && budget >= C.cost * 3 && Math.random() < 0.5) { star = 2; cost = C.cost * 3; }
     if (cost > budget) continue;
     budget -= cost; placed++;
-    spawnQueue.push({ def: defOfClassChar(C), star });
+    spawnQueue.push({ def: defOfFoeType(C), star });
   }
   if (wave === waveTotal && round >= 10) {
     spawnQueue.push({ def: defOfHero(CAO_BOSS), star: 2 });
@@ -2394,6 +2401,7 @@ function drawTile(u, px, py, now, sizeBase) {
   if (u.hero) { g1 = "#f8ecc8"; g2 = "#eeddae"; border = "#8a6a1c"; txt = "#241b0e"; }
   else if (u.kind === "name") { g1 = "#faf3e4"; g2 = "#f0e6cc"; border = "#8a7050"; txt = "#4a3020"; }
   else if (u.side === "me") { g1 = "#f7efdd"; g2 = "#eee1c2"; border = "#3a2f24"; txt = "#241b12"; }
+  else if (u.side === "foe") { g1 = "#c9998a"; g2 = "#b47f70"; border = "#4a140c"; txt = "#3f0e06"; }
   else { g1 = "#e6d9cd"; g2 = "#dbcabc"; border = "#6a4038"; txt = "#3a2420"; }
   if (grey) { g1 = g2 = "#9a9186"; border = "#6a6258"; txt = "#4a453c"; }
   const grad = ctx.createLinearGradient(X, Y, X + S, Y + S);
