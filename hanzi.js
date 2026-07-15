@@ -92,12 +92,16 @@ const CAO_GENERALS = [
 ];
 const CAO_BOSS = { id: "caocao", name: "曹操", cls: "lancer", faction: "魏", skillName: "挟天子令诸侯" };
 // 敌方专用小兵（字库与我方刀枪弓医骑分离）：卒=杂兵海 马=快速兵 校=血厚精英
+// 敌人是行为题不是数值包：每种敌人制造一类问题，对应一类兵种答案
 const FOE_TYPES = [
-  { id: "zu",   char: "卒", cls: "infantry", cost: 1, hpB: 70,  atkB: 10 },
-  { id: "ma",   char: "马", cls: "cavalry",  cost: 2, hpB: 55,  atkB: 9 },
-  { id: "xiao", char: "校", cls: "infantry", cost: 3, hpB: 200, atkB: 12, slow: true },
+  { id: "zu",   char: "卒", cls: "infantry", cost: 1, hpB: 70,  atkB: 10, minR: 1, tip: "稳步推进——基础防线即可" },
+  { id: "ma",   char: "马", cls: "cavalry",  cost: 2, hpB: 55,  atkB: 9,  minR: 2, tip: "高速冲线——前排刀兵能挡住" },
+  { id: "dun",  char: "盾", cls: "infantry", cost: 2, hpB: 120, atkB: 8,  minR: 3, shield: true, tip: "盾挡箭矢——枪兵贯穿可破盾" },
+  { id: "xiao", char: "校", cls: "infantry", cost: 3, hpB: 200, atkB: 12, minR: 4, slow: true, tip: "血厚慢推——毒雾加集火" },
+  { id: "qi2",  char: "旗", cls: "priest",   cost: 3, hpB: 60,  atkB: 5,  minR: 4, banner: true, tip: "旗令强化同路敌军——弓兵优先点杀" },
+  { id: "nu",   char: "弩", cls: "archer",   cost: 3, hpB: 50,  atkB: 11, minR: 5, ranged: true, tip: "远程消耗前排——骑兵会自动突入" },
 ];
-const defOfFoeType = t => ({ kind: "class", id: "f_" + t.id, char: t.char, cls: t.cls, cost: t.cost, hpB: t.hpB, atkB: t.atkB, slow: !!t.slow });
+const defOfFoeType = t => ({ kind: "class", id: "f_" + t.id, char: t.char, cls: t.cls, cost: t.cost, hpB: t.hpB, atkB: t.atkB, slow: !!t.slow, shield: !!t.shield, banner: !!t.banner, ranged: !!t.ranged, tip: t.tip });
 // 神兵：连出武器名获得装备；装给本命武将触发共鸣
 const WEAPONS = [
   { id: "shemao",    name: "丈八蛇矛",   icon: "26", wchar: "矛", hero: "zhangfei" },
@@ -438,6 +442,7 @@ function makeUnit(def, side, col, row, star = 1, items = []) {
     name: def.kind === "hero" ? def.name : def.char,
     cls: def.cls, cost: def.cost || 2, faction: def.faction || null,
     skillName: def.skillName || null, hero: def.kind === "hero", slow: !!def.slow,
+    shield: !!def.shield, banner: !!def.banner, ranged: !!def.ranged, tip: def.tip || null,
     side, star, col, row, x: col, y: row,
     base, items: items.slice(0, 2),
     rage: RAGE_START, stun: 0,
@@ -558,6 +563,8 @@ function dealDamage(att, tgt, mult, opt = {}) {
   const counter = false;
   const crit = Math.random() < (att.crit || 0.12);
   let dmg = Math.max(3, att.atk * mult * 1.3 - (opt.trueDmg ? 0 : tgt.def * 0.5));
+  if (tgt.shield && opt.ranged) { dmg *= 0.4; popup(tgt, "盾挡", "#6a7a9a"); }
+  if (att.side === "foe" && att.banner !== true && alive("foe").some(b => b.banner && b !== att && b.col === att.col)) dmg *= 1.2;   // 旗令：同路敌军增伤
   dmg *= (0.9 + Math.random() * 0.2);
   dmg *= 1 + Math.max(0, battleCycles - 10) * 0.15;
   if (counter) dmg *= 1.35;
@@ -603,7 +610,7 @@ function shootArrow(att, tgt, mult) {
   projectiles.push({
     x0: att.col, y0: att.row, x1: tgt.col, y1: tgt.row,
     born: now, dur: 90 * dist(att, tgt) + 60, done: false,
-    onHit: () => dealDamage(att, tgt, mult),
+    onHit: () => dealDamage(att, tgt, mult, { ranged: true }),
   });
   thock(320, 0.05, 0.15);
 }
@@ -612,7 +619,7 @@ function shootHero(att, tgt, mult, type) {
   projectiles.push({
     x0: att.col, y0: att.row, x1: tgt.col, y1: tgt.row, type,
     born: performance.now(), dur: 75 * dist(att, tgt) + 60, done: false,
-    onHit: () => dealDamage(att, tgt, mult),
+    onHit: () => dealDamage(att, tgt, mult, { ranged: true }),
   });
   thock(type === "orb" ? 300 : 230, 0.09, 0.25);
 }
@@ -898,6 +905,17 @@ function unitActRT(u) {
       u.state = "stand"; return "idle";
     }
   }
+  // 弩兵例外：敌方唯一远程，同列3格内有我方就停下射击
+  if (u.side === "foe" && u.ranged) {
+    const tgt = foes.filter(f => f.col === u.col && f.row > u.row && f.row - u.row <= 3).sort((a, b) => a.row - b.row)[0];
+    if (tgt) {
+      faceTo(u, tgt.col, tgt.row);
+      u.state = "attack"; u.animStart = performance.now();
+      shootArrow(u, tgt, 1);
+      gainRage(u, 20);
+      return "attack";
+    }
+  }
   // 攻击射程内目标
   let inRange = foes.filter(f => dist(u, f) <= u.rng);
   // 敌军以突围为先（PvZ式）：一律压到贴脸才动手，远程射程只属于我方
@@ -940,7 +958,10 @@ function unitActRT(u) {
 const RT_DELAY = { heroskill: 1500, skill: 1400, attack: 1050, heal: 1250, move: 1350, stun: 900, idle: 420 };
 function actDelay(u, kind) {
   let d = RT_DELAY[kind] || 800;
-  if (u.side === "foe" && kind === "move") d = (3800 - Math.min(1600, round * 160)) * (u.slow ? 1.3 : 1) * (gridPath.length ? 1.5 : 1);
+  if (u.side === "foe" && kind === "move") {
+    d = (3800 - Math.min(1600, round * 160)) * (u.slow ? 1.3 : 1) * (gridPath.length ? 1.5 : 1);
+    if (!u.banner && alive("foe").some(b => b.banner && b !== u && b.col === u.col)) d *= 0.75;   // 旗令提速
+  }
   if (u.cls === "cavalry" && kind === "move") d *= 0.7;
   return d * speedMult;
 }
@@ -976,7 +997,7 @@ function runBattleStep(now) {
       }
     }
   } else if (!alive("foe").length && wave < waveTotal) {
-    if (!nextWaveAt) nextWaveAt = now + 3600;      // 波间喘息
+    if (!nextWaveAt) nextWaveAt = now + (round >= 2 ? 1500 : 3600);   // 预告本身是喘息
     if (now >= nextWaveAt) { nextWaveAt = 0; queueWave(); }
   }
   // 药雾结算：每600ms一跳，雾区(±1格)敌中毒/友回血
@@ -1029,7 +1050,7 @@ function endCombat(win) {
       const defenders = units.filter(v => v.side === "me" && v.col === lostCol && v.state !== "dead").length;
       lines.push(defenders === 0
         ? `复盘：第${lostCol + 1}路无人防守——下局先把兵拖到那一路`
-        : `复盘：第${lostCol + 1}路防线被击穿——前排放刀兵挡、后排放弓兵射`);
+        : `复盘：第${lostCol + 1}路被「${lostBy}」冲破${lostTip ? "——" + lostTip : ""}`);
     }
     nextBtn.textContent = "重 新 开 局";
     nextBtn.onclick = () => location.reload();
@@ -1086,6 +1107,8 @@ function unitDef(u) { return defById(u.defId); }
 function wavesFor(stage) { return Math.min(6, 2 + Math.floor((stage - 1) / 2)); }
 // 生成一波敌人描述，入队后按时间滴灌进场
 let mainCols = [];
+let previewUntil = 0, previewComp = "", previewTip = "";
+const seenFoes = new Set(["卒"]);
 function queueWave() {
   wave++;
   battleCycles = 0;
@@ -1093,7 +1116,7 @@ function queueWave() {
   if (round >= 3) mainCols.push(Math.floor(Math.random() * COLS));
   let budget = Math.round((4 + round * 2.6) * (1 + (wave - 1) * 0.45) * (round === 1 ? 0.7 : 1));
   const countCap = Math.min(12, 3 + round);
-  const pool = FOE_TYPES.filter(t => t.cost <= Math.min(3, 1 + Math.floor(round / 2)));
+  const pool = FOE_TYPES.filter(t => (t.minR || 1) <= round);
   let guard = 60, placed = 0;
   while (budget >= 1 && placed < countCap && guard--) {
     const C = pool[Math.floor(Math.random() * pool.length)];
@@ -1110,7 +1133,20 @@ function queueWave() {
     const h = CAO_GENERALS[Math.floor(Math.random() * CAO_GENERALS.length)];
     spawnQueue.push({ def: defOfHero(h), star: round >= 8 ? 2 : 1 });
   }
-  if (phase === "fight") {
+  // 战前预告（第2关起）：敌军构成+主攻路线+新敌人一句话，期间可从容布阵
+  if (round >= 2 && phase === "fight") {
+    const cnt = {};
+    for (const q of spawnQueue) cnt[q.def.char || "将"] = (cnt[q.def.char || "将"] || 0) + 1;
+    previewComp = Object.entries(cnt).map(([c, n]) => `${c}×${n}`).join(" ");
+    previewTip = "";
+    for (const q of spawnQueue) {
+      const ch = q.def.char;
+      if (ch && q.def.tip && !seenFoes.has(ch)) { seenFoes.add(ch); previewTip = `${ch}：${q.def.tip}`; break; }
+    }
+    previewUntil = performance.now() + 7000;
+    nextSpawnAt = previewUntil + 600;
+    playSfx("Se_m_06", 0.4);
+  } else if (phase === "fight") {
     popups.push({ x: COLS / 2 - 0.5, y: 1, text: `曹军第 ${wave}/${waveTotal} 波来袭！`, color: "#b83420", born: performance.now(), big: true });
     playSfx("Se_m_06", 0.5);
   }
@@ -1140,7 +1176,7 @@ function spawnOneEnemy(q) {
   return true;
 }
 // 敌人触底：扣玩家血
-let breachCount = 0, lostCol = -1;
+let breachCount = 0, lostCol = -1, lostBy = "", lostTip = "";
 let bottomFlashUntil = 0;
 let battleSlowUntil = 0;   // 武将登场子弹时间：敌军冻结
 let tutorialHold = false;  // 第1关：完成第一次连线前敌军列阵不动
@@ -1166,6 +1202,8 @@ function breach(u) {
     // 缺口再破：城破，游戏失败
     walls[col] = 0;
     lostCol = col;
+    lostBy = u.hero ? u.name : (u.char || "敌军");
+    lostTip = u.tip || (u.hero ? "曹将需要名将对位与集火" : "");
     popups.push({ x: col, y: ROWS - 1, text: "城 破 ！", color: "#8a1810", born: performance.now(), big: true });
     doShake(14);
   }
@@ -2319,6 +2357,36 @@ function drawBoard() {
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, COLS * TILE, DEPLOY_ROWS * TILE);
   drawDecor();
+  // 战前预告：主攻列集结红光 + 敌情横幅 + 倒计时
+  if (phase === "fight" && performance.now() < previewUntil) {
+    const pnow = performance.now();
+    for (const mc of mainCols) {
+      const pa = 0.10 + 0.07 * Math.sin(pnow / 260);
+      const pg = ctx.createLinearGradient(0, 0, 0, ROWS * TILE * 0.6);
+      pg.addColorStop(0, `rgba(176,48,32,${pa})`); pg.addColorStop(1, "rgba(176,48,32,0)");
+      ctx.fillStyle = pg;
+      ctx.fillRect(mc * TILE, 0, TILE, ROWS * TILE * 0.6);
+      ctx.fillStyle = "#a02818";
+      ctx.font = 'bold 13px "Kaiti SC", "STKaiti", "KaiTi", serif';
+      ctx.textAlign = "center";
+      ctx.fillText("⚠ 集结", mc * TILE + TILE / 2, 16);
+    }
+    const secs = Math.ceil((previewUntil - pnow) / 1000);
+    const bw = COLS * TILE - 40;
+    ctx.fillStyle = "rgba(36,26,14,.88)";
+    roundRect(20, 60, bw, previewTip ? 62 : 44, 8);
+    ctx.fill();
+    ctx.strokeStyle = "#8a6a1c"; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = "#f4c860";
+    ctx.font = 'bold 15px "Kaiti SC", "STKaiti", "KaiTi", serif';
+    ctx.fillText(`第${wave}/${waveTotal}波 ${previewComp} · ${secs}秒`, COLS * TILE / 2, 82);
+    if (previewTip) {
+      ctx.fillStyle = "#e8d8b0";
+      ctx.font = '12px "Kaiti SC", "STKaiti", "KaiTi", serif';
+      ctx.fillText(previewTip, COLS * TILE / 2, 104);
+    }
+    ctx.textAlign = "left";
+  }
   // 缺口列整路红光呼吸
   for (let c = 0; c < COLS; c++) {
     if (walls[c] !== 1) continue;
