@@ -7,9 +7,9 @@
 ======================================================= */
 
 // ---------- 常量 ----------
-const COLS = 5, ROWS = 6, TILE = 64;   // PvZ改制：5车道×6行（敌区3+中场1+部署2）
+const COLS = 5, ROWS = 7, TILE = 64;   // 5车道×7行（敌区3+缓冲1+部署3=经典三排阵）
 const WALL_H = 14;                      // 城墙带（画在战场底部与备战条之间）
-const DEPLOY_ROWS = 2;   // 部署2行×5列=10格=人口10
+const DEPLOY_ROWS = 3;   // 部署3行×5列=15格，人口10自由布阵
 const MAX_ROUND = 10;   // 闯关：10关通关
 const BENCH_SIZE = 8;   // 囤字位加大
 const ACT_WAIT = { heroskill: 980, skill: 620, attack: 420, move: 220, idle: 40 };
@@ -38,7 +38,7 @@ const CLASSES = {
   lancer:   { name: "枪兵", hp: 100, atk: 15, def: 6,  rng: 2, step: 1, mode: "pierce", skill: "贯穿突刺" },
   archer:   { name: "弓手", hp: 65,  atk: 15, def: 3,  rng: 9, step: 1, mode: "column", skill: "连珠箭" },
   priest:   { name: "医师", hp: 75,  atk: 8,  def: 3,  rng: 9, step: 1, heal: 6, mode: "mist", skill: "回春" },
-  cavalry:  { name: "铁骑", hp: 130, atk: 20, def: 7,  rng: 1, step: 2, mode: "rover",  skill: "冲锋" },
+  cavalry:  { name: "铁骑", hp: 110, atk: 14, def: 7,  rng: 1, step: 2, mode: "rover",  skill: "冲锋" },
   namechar: { name: "字",   hp: 65,  atk: 8,  def: 2,  rng: 1, step: 1, skill: "" },   // 姓名字：弱单位，等待合体
 };
 // 药雾区域效果 {col,row,born,until,side}
@@ -100,12 +100,21 @@ const FOE_TYPES = [
 const defOfFoeType = t => ({ kind: "class", id: "f_" + t.id, char: t.char, cls: t.cls, cost: t.cost, hpB: t.hpB, atkB: t.atkB, slow: !!t.slow });
 // 神兵：连出武器名获得装备；装给本命武将触发共鸣
 const WEAPONS = [
-  { id: "shemao",    name: "丈八蛇矛",   icon: "26", hero: "zhangfei" },
-  { id: "qinglong",  name: "青龙偃月刀", icon: "25", hero: "guanyu" },
-  { id: "fangtian",  name: "方天画戟",   icon: "27", hero: "lvbu" },
-  { id: "cixiong",   name: "雌雄双剑",   icon: "21", hero: "liubei" },
-  { id: "shenshan",  name: "五火神焰扇", icon: "34", hero: "zhugeliang" },
+  { id: "shemao",    name: "丈八蛇矛",   icon: "26", wchar: "矛", hero: "zhangfei" },
+  { id: "qinglong",  name: "青龙偃月刀", icon: "25", wchar: "偃", hero: "guanyu" },
+  { id: "fangtian",  name: "方天画戟",   icon: "27", wchar: "戟", hero: "lvbu" },
+  { id: "cixiong",   name: "雌雄双剑",   icon: "21", wchar: "剑", hero: "liubei" },
+  { id: "shenshan",  name: "五火神焰扇", icon: "34", wchar: "扇", hero: "zhugeliang" },
 ].map(w => ({ ...w, chars: w.name.split("") }));
+// 神兵备战牌：占一个备战格可见，本命到位自动飞装
+const makeWeaponToken = w => ({ isWeapon: true, wkey: "w_" + w.id, char: w.wchar, name: w.name, heroId: w.hero });
+function stashWeapon(k) {
+  const w = WEAPONS.find(x => "w_" + x.id === k);
+  const slot = bench.indexOf(null);
+  if (w && slot >= 0) { bench[slot] = makeWeaponToken(w); return true; }
+  inventory.push(k);
+  return false;
+}
 function weaponByString(str) {
   const rev = str.split("").reverse().join("");
   return WEAPONS.find(w => w.name === str || w.name === rev) || null;
@@ -396,7 +405,7 @@ const popCap = () => 10;
 const fieldUnits = () => units.filter(u => u.side === "me" && u.state !== "dead");
 const fieldCount = () => fieldUnits().length;
 const interest = () => Math.min(5, Math.floor(gold / 10));
-const sellValue = u => (u.hero ? 6 : u.cost) * Math.pow(3, u.star - 1);
+const sellValue = u => u.isWeapon ? 3 : (u.hero ? 6 : u.cost) * Math.pow(3, u.star - 1);
 
 // ---------- 单位 ----------
 // kind: "class"(兵种字) | "name"(姓名字) | "hero"(武将)
@@ -856,8 +865,8 @@ function unitActRT(u) {
       }
       u.state = "stand"; return "idle";
     }
-    if (mode === "rover") {          // 骑：全场唯一机动，自动冲向最深入的敌人
-      const tgt = foes.slice().sort((a, b) => b.row - a.row)[0];
+    if (mode === "rover") {          // 骑：只守内线(缓冲区+部署区)，敌人进内线才追杀
+      const tgt = foes.filter(f => f.row >= 3).sort((a, b) => b.row - a.row)[0];
       if (tgt) {
         if (dist(u, tgt) <= 1) {
           faceTo(u, tgt.col, tgt.row);
@@ -868,7 +877,7 @@ function unitActRT(u) {
         }
         const dc = Math.sign(tgt.col - u.col), dr = Math.sign(tgt.row - u.row);
         const stepTo = [[u.col + dc, u.row + dr], [u.col + dc, u.row], [u.col, u.row + dr]]
-          .find(([c, r]) => c >= 0 && c < COLS && r >= 0 && r < ROWS && !alive().some(v => v !== u && v.col === c && v.row === r));
+          .find(([c, r]) => c >= 0 && c < COLS && r >= 3 && r < ROWS && !alive().some(v => v !== u && v.col === c && v.row === r));
         if (stepTo) {
           u.col = stepTo[0]; u.row = stepTo[1];
           faceTo(u, u.col, u.row);
@@ -1152,7 +1161,7 @@ function fixWall(col) {
 }
 
 // ---------- 字盘：多排连线找名字 ----------
-const GRID_COLS = 8, GRID_ROWS = 4;
+const GRID_COLS = 8, GRID_ROWS = 3;
 const G_CELL = 45, G_GAP = 3, G_PAD = 3;
 const HERO_PRICE = 5;
 const DEPLOY_ROWS_N = 2;   // 新制部署行数
@@ -1313,7 +1322,7 @@ function regenGrid(free) {
   const heroChance = round <= 1 ? 0 : round === 2 ? 0.5 : 1;
   if (Math.random() < heroChance) buryHeroName();
   if (round >= 5 && Math.random() < 0.35) buryHeroName();
-  if (Math.random() < 0.3) buryWeaponName();   // 神兵稀有现世（字不进随机池）
+  if (round >= 4 && Math.random() < 0.3) buryWeaponName();   // 神兵第4关起现世（与一流将同步）
   gridPath = [];
   computeHints();
   refreshStats();
@@ -1448,9 +1457,9 @@ function commitPath(path) {
       showGridToast(`${w.name} 认主 ${owner.name}！`);
       setStatus(`${w.name} 认主 ${owner.name}——神兵共鸣！`);
     } else {
-      inventory.push(k);
+      stashWeapon(k);
       showGridToast(`神兵【${w.name}】出世！`);
-      setStatus(`${w.name} 出世！待 ${(HEROES[w.hero] || {}).name} 上阵自动认主`);
+      setStatus(`${w.name} 出世！待 ${(HEROES[w.hero] || {}).name} 应募自动认主`);
     }
     refreshStats();
     return "ok";
@@ -1516,6 +1525,7 @@ function comboOf(a, b) {
   return null;
 }
 function tryCombine(a, b) {
+  if (!a || !b || a.isWeapon || b.isWeapon) return false;
   const h = comboOf(a, b);
   if (!h) return false;
   const star = Math.min(a.star, b.star);
@@ -1560,12 +1570,20 @@ function hintCombos() {
 function sellSelected() {
   if (!selected || phase !== "fight") return;
   gold += sellValue(selected);
-  inventory.push(...selected.items);
+  const su = selected;
+  for (const k of (su.items || [])) { if (k.startsWith("w_")) setTimeout(() => stashWeapon(k), 0); else inventory.push(k); }
   units = units.filter(u => u !== selected);
   const bi = bench.indexOf(selected);
   if (bi >= 0) bench[bi] = null;
   selected = null;
   refreshStats(); renderShop(); renderSyn(); renderInv();
+}
+function sellWeaponToken(t, slot) {
+  bench[slot] = null;
+  gold += 3;
+  popups.push({ x: COLS / 2 - 0.5, y: ROWS - 2, text: `${t.name} 折卖 +3金`, color: "#8a6a10", born: performance.now() });
+  playSfx("Se_m_19", 0.4);
+  refreshStats();
 }
 
 // ---------- 经验 ----------
@@ -1946,6 +1964,15 @@ function renderSyn() {
 }
 function claimWeapons(u) {
   if (!u || !u.hero || u.side !== "me") return;
+  for (let i = 0; i < bench.length; i++) {
+    const t = bench[i];
+    if (!t || !t.isWeapon || t.heroId !== u.defId || u.items.length >= 2) continue;
+    bench[i] = null;
+    u.items.push(t.wkey);
+    bakeStats(u, null);
+    popup(u, `⚔ ${t.name} 认主！`, "#8a6a10", true);
+    playSfx("Se_m_25", 0.5);
+  }
   for (let i = inventory.length - 1; i >= 0; i--) {
     const k = inventory[i];
     if (!k.startsWith("w_")) continue;
@@ -2027,6 +2054,7 @@ function benchSlotAt(x, y) {
   return i;
 }
 function handlePick(u) {
+  if (u && u.isWeapon) { setStatus(`${u.name}——拖到本命 ${(HEROES[u.heroId] || {}).name} 身上装备，拖进桶折卖3金`); return; }
   // 选中另一个字时优先尝试合体
   if (selected && selected !== u && tryCombine(selected, u)) return;
   selected = selected === u ? null : u;
@@ -2078,8 +2106,8 @@ cv.addEventListener("pointerup", e => {
   const bi = benchSlotAt(p.x, p.y);
   const inDeploy = col >= 0 && col < COLS && row >= ROWS - DEPLOY_ROWS && row < ROWS;
   if (bi === BIN_SLOT) {
-    // 回收桶格：卖出（场上/备战通吃）
-    selected = u; playSfx("Se_m_19", 0.4); sellSelected(); setStatus("已回收，金币入账");
+    if (u.isWeapon) { sellWeaponToken(u, from.slot); setStatus(`${u.name} 折卖 +3金`); }
+    else { selected = u; playSfx("Se_m_19", 0.4); sellSelected(); setStatus("已回收，金币入账"); }
   } else if (bi >= 0) {
     if (from.type === "field") {
       if (!bench[bi]) {                // 拖回备战席=下阵
@@ -2095,7 +2123,16 @@ cv.addEventListener("pointerup", e => {
     const foeOcc = units.some(v => v !== u && v.col === col && v.row === row && v.state !== "dead" && v.side === "foe");
     if (foeOcc) { setStatus("敌人占着这格，先打退它！"); }
     else if (from.type === "bench") {
-      if (occ) {                       // 拖到己方棋子头上=替换：旧的回拖出的空槽
+      if (u.isWeapon) {                // 神兵拖到武将=装备（只认本命）
+        if (occ && occ.hero && occ.defId === u.heroId && occ.items.length < 2) {
+          bench[from.slot] = null;
+          occ.items.push(u.wkey);
+          bakeStats(occ, null);
+          popup(occ, `⚔ ${u.name} 认主！`, "#8a6a10", true);
+          playSfx("Se_m_25", 0.5);
+        } else if (occ) setStatus(`${u.name} 只认本命 ${(HEROES[u.heroId] || {}).name}`);
+        else setStatus(`${u.name} 是神兵——拖到 ${(HEROES[u.heroId] || {}).name} 身上装备`);
+      } else if (occ) {                // 拖到己方棋子头上=替换：旧的回拖出的空槽
         bench[from.slot] = null;
         unfield(occ); bench[from.slot] = occ;
         placeOnField(u, col, row);
@@ -2170,6 +2207,7 @@ cv.addEventListener("click", e => {
   refreshStats();
 });
 function tryDeploy(u, col, row) {
+  if (u && u.isWeapon) { setStatus(`${u.name} 是神兵——拖到本命武将身上装备`); return false; }
   if (bench.indexOf(u) < 0) return false;
   if (col < 0 || col >= COLS || row < ROWS - DEPLOY_ROWS || row >= ROWS) return false;
   if (units.some(v => v.col === col && v.row === row && v.state !== "dead")) return false;
@@ -2533,6 +2571,27 @@ function drawBench(now) {
   bench.forEach((u, i) => {
     if (!u) return;
     const px = BENCH_X0 + i * (BENCH_TILE + BENCH_GAP) + BENCH_TILE / 2;
+    if (u.isWeapon) {
+      const S = 30, X = px - S / 2, Y = BENCH_Y0 + BENCH_TILE / 2 - S / 2;
+      ctx.save();
+      ctx.shadowColor = "#d4a434";
+      ctx.shadowBlur = 6 + 4 * Math.sin(now / 300);
+      const g = ctx.createLinearGradient(X, Y, X + S, Y + S);
+      g.addColorStop(0, "#f8ecc0"); g.addColorStop(1, "#e8d090");
+      ctx.fillStyle = g;
+      roundRect(X, Y, S, S, 6);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = "#8a6a10"; ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = "#5a4008";
+      ctx.font = 'bold 18px "Kaiti SC", "STKaiti", "KaiTi", serif';
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(u.char, px, BENCH_Y0 + BENCH_TILE / 2 + 1);
+      ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
+      ctx.restore();
+      return;
+    }
     drawTile(u, px, BENCH_Y0 + BENCH_TILE / 2, now, 38);
   });
 }
