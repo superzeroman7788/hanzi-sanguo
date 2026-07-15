@@ -107,7 +107,17 @@ const WEAPONS = [
   { id: "shenshan",  name: "五火神焰扇", icon: "34", wchar: "扇", hero: "zhugeliang" },
 ].map(w => ({ ...w, chars: w.name.split("") }));
 // 神兵备战牌：占一个备战格可见，本命到位自动飞装
-const makeWeaponToken = w => ({ isWeapon: true, wkey: "w_" + w.id, char: w.wchar, name: w.name, heroId: w.hero });
+const makeWeaponToken = w => ({ isWeapon: true, wkey: "w_" + w.id, char: w.wchar, icon: w.icon, name: w.name, heroId: w.hero });
+const weaponImgs = {};
+function weaponImg(icon) {
+  if (!weaponImgs[icon]) {
+    weaponImgs[icon] = { complete: false, naturalWidth: 0 };
+    loadKeyedImage(`assets/items/${icon}.png`).then(c => {   // 复用抠黑底逻辑
+      if (c) weaponImgs[icon] = Object.assign(c, { complete: true, naturalWidth: c.width });
+    });
+  }
+  return weaponImgs[icon];
+}
 function stashWeapon(k) {
   const w = WEAPONS.find(x => "w_" + x.id === k);
   const slot = bench.indexOf(null);
@@ -2584,11 +2594,18 @@ function drawBench(now) {
       ctx.shadowBlur = 0;
       ctx.strokeStyle = "#8a6a10"; ctx.lineWidth = 2;
       ctx.stroke();
-      ctx.fillStyle = "#5a4008";
-      ctx.font = 'bold 18px "Kaiti SC", "STKaiti", "KaiTi", serif';
-      ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText(u.char, px, BENCH_Y0 + BENCH_TILE / 2 + 1);
-      ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
+      const im = weaponImg(u.icon);
+      if (im.complete && im.naturalWidth) {
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(im, px - 12, BENCH_Y0 + BENCH_TILE / 2 - 12, 24, 24);
+        ctx.imageSmoothingEnabled = true;
+      } else {
+        ctx.fillStyle = "#5a4008";
+        ctx.font = 'bold 18px "Kaiti SC", "STKaiti", "KaiTi", serif';
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(u.char, px, BENCH_Y0 + BENCH_TILE / 2 + 1);
+        ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
+      }
       ctx.restore();
       return;
     }
@@ -2916,10 +2933,16 @@ function drawDragGhost() {
   ctx.strokeStyle = "#8a6a1c"; ctx.lineWidth = 2.5;
   roundRectU(bDragPos.x - S / 2, bDragPos.y - S - 14, S, S, [7, 5, 8, 6]);
   ctx.fill(); ctx.stroke();
-  ctx.fillStyle = "#241b12";
-  ctx.font = 'bold 32px "Kaiti SC", "STKaiti", "KaiTi", serif';
-  ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillText(bDragU.char || bDragU.name[0], bDragPos.x, bDragPos.y - S / 2 - 12);
+  if (bDragU.isWeapon && weaponImg(bDragU.icon).complete) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(weaponImg(bDragU.icon), bDragPos.x - 18, bDragPos.y - S / 2 - 30, 36, 36);
+    ctx.imageSmoothingEnabled = true;
+  } else {
+    ctx.fillStyle = "#241b12";
+    ctx.font = 'bold 32px "Kaiti SC", "STKaiti", "KaiTi", serif';
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(bDragU.char || bDragU.name[0], bDragPos.x, bDragPos.y - S / 2 - 12);
+  }
   ctx.restore();
 }
 
