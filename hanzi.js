@@ -940,7 +940,7 @@ function unitActRT(u) {
 const RT_DELAY = { heroskill: 1500, skill: 1400, attack: 1050, heal: 1250, move: 1350, stun: 900, idle: 420 };
 function actDelay(u, kind) {
   let d = RT_DELAY[kind] || 800;
-  if (u.side === "foe" && kind === "move") d = (3800 - Math.min(1600, round * 160)) * (u.slow ? 1.3 : 1);
+  if (u.side === "foe" && kind === "move") d = (3800 - Math.min(1600, round * 160)) * (u.slow ? 1.3 : 1) * (gridPath.length ? 1.5 : 1);
   if (u.cls === "cavalry" && kind === "move") d *= 0.7;
   return d * speedMult;
 }
@@ -999,6 +999,7 @@ function runBattleStep(now) {
   }
   // 各单位独立冷却行动
   for (const u of alive()) {
+    if (u.side === "foe" && now < battleSlowUntil) continue;   // 武将登场：敌军肃立
     if (now < (u.nextActAt || 0)) continue;
     u.actingUntil = now + 350;
     const kind = unitActRT(u);
@@ -1023,6 +1024,12 @@ function endCombat(win) {
   if (!win) {
     txt.textContent = "城 破"; txt.style.color = "#c05040";
     lines.push(`止步第 ${round} 关`);
+    if (lostCol >= 0) {
+      const defenders = units.filter(v => v.side === "me" && v.col === lostCol && v.state !== "dead").length;
+      lines.push(defenders === 0
+        ? `复盘：第${lostCol + 1}路无人防守——下局先把兵拖到那一路`
+        : `复盘：第${lostCol + 1}路防线被击穿——前排放刀兵挡、后排放弓兵射`);
+    }
     nextBtn.textContent = "重 新 开 局";
     nextBtn.onclick = () => location.reload();
   } else if (round >= MAX_ROUND && win) {
@@ -1131,8 +1138,9 @@ function spawnOneEnemy(q) {
   return true;
 }
 // 敌人触底：扣玩家血
-let breachCount = 0;
+let breachCount = 0, lostCol = -1;
 let bottomFlashUntil = 0;
+let battleSlowUntil = 0;   // 武将登场子弹时间：敌军冻结
 function breach(u) {
   const col = u.col;
   u.state = "dead"; u.deadAt = performance.now() - 9999;   // 冲到墙下，不播阵亡动画
@@ -1154,6 +1162,7 @@ function breach(u) {
   } else if (walls[col] === 1) {
     // 缺口再破：城破，游戏失败
     walls[col] = 0;
+    lostCol = col;
     popups.push({ x: col, y: ROWS - 1, text: "城 破 ！", color: "#8a1810", born: performance.now(), big: true });
     doShake(14);
   }
@@ -1267,6 +1276,19 @@ function overlapScore(path, chars) {
   });
   return sc;
 }
+function buryHeroStraight(id) {   // 教学用：直线埋入指定武将（好找好连，还吃直线8折）
+  const h = HERO_LIST.find(x => x.id === id);
+  if (!h) return;
+  const L = h.chars.length;
+  const horiz = Math.random() < 0.7;
+  const r0 = Math.floor(Math.random() * (horiz ? GRID_ROWS : Math.max(1, GRID_ROWS - L + 1)));
+  const c0 = Math.floor(Math.random() * (horiz ? Math.max(1, GRID_COLS - L + 1) : GRID_COLS));
+  h.chars.forEach((ch, i) => {
+    const r = horiz ? r0 : Math.min(GRID_ROWS - 1, r0 + i);
+    const c = horiz ? Math.min(GRID_COLS - 1, c0 + i) : c0;
+    grid[r][c] = { type: "name", char: ch };
+  });
+}
 function buryHeroName() {
   const owned = new Set();
   for (const u of units) if (u.side === "me" && u.hero) owned.add(u.name);
@@ -1328,9 +1350,9 @@ function regenGrid(free) {
     grid.push([]);
     for (let c = 0; c < GRID_COLS; c++) grid[r].push(randGridCell());
   }
-  // 武将稀缺曲线：第1关零武将纯学兵种，第2关50%出二流，第3关起必埋
-  const heroChance = round <= 1 ? 0 : round === 2 ? 0.5 : 1;
-  if (Math.random() < heroChance) buryHeroName();
+  // 武将稀缺曲线：第1关教学必埋直线刘备（引导第一次合将），第2关50%二流，第3关起必埋
+  if (round <= 1) buryHeroStraight("liubei");
+  else if (round === 2 ? Math.random() < 0.5 : true) buryHeroName();
   if (round >= 5 && Math.random() < 0.35) buryHeroName();
   if (round >= 4 && Math.random() < 0.3) buryWeaponName();   // 神兵第4关起现世（与一流将同步）
   gridPath = [];
@@ -1409,6 +1431,7 @@ function commitPath(path) {
     bench[slot] = makeUnit(defOfClassChar(C), "me", null, null, 1);
     consumePath(path);
     checkMerge("" + C.id, 1);
+    if (bench[slot]) autoDeploy(bench[slot]);
     playSfx("Se_m_21", 0.35);
     refreshStats(); renderSyn();
     return "ok";
@@ -1424,6 +1447,7 @@ function commitPath(path) {
     gold -= cost;
     bench[slot] = makeUnit(defOfClassChar(C), "me", null, null, star);
     consumePath(path);
+    if (bench[slot]) autoDeploy(bench[slot]);
     popups.push({ x: COLS / 2 - 0.5, y: ROWS - 2, text: `${star}星${CLASSES[C.cls].name}成军！${straight ? "（一线贯通·8折）" : ""}`, color: "#8a2818", born: performance.now(), big: true });
     playSfx("Se_m_28", 0.4);
     refreshStats(); renderSyn();
@@ -1444,9 +1468,12 @@ function commitPath(path) {
     heroAnim = { name: h.name, chars: h.chars, born: performance.now() };
     playSfx("Se_m_28", 0.7);
     doShake(h.tier === 1 ? 9 : 5);
+    battleSlowUntil = performance.now() + 1500;   // 敌军肃立1.5秒
+    popups.push({ x: COLS / 2 - 0.5, y: 2, text: `「${h.skillName}」`, color: "#8a6a10", born: performance.now() + 400, big: true });
     if (h.tier === 1) showGridToast(`一流名将 ${h.name} 应募！`);
     claimWeapons(nu);
     checkMerge(nu.defId, 1);
+    if (bench[slot]) autoDeploy(bench[slot]);
     setStatus(`${h.name} 应募登场！`);
     refreshStats(); renderSyn(); renderInv();
     return "ok";
@@ -2022,8 +2049,10 @@ function refreshStats() {
   renderShop();
   renderHint();
 }
-const GRID_HINT_DEF = "👆 连相邻字凑名将 · ⚔连兵器名得神兵 · 直线8折 · 发光有路";
-let lastHintMsg = GRID_HINT_DEF;
+const hintDef = () => round <= 1 ? "👆 连相邻的字招兵 · 同字×3=三星 · 发光的字有惊喜"
+  : round <= 3 ? "👆 连相邻字凑名将 · 一笔直线8折 · 发光有路"
+  : "👆 连相邻字凑名将 · ⚔连兵器名得神兵 · 直线8折 · 发光有路";
+let lastHintMsg = hintDef();
 function renderHint() {
   const gh = document.getElementById("gridHint");
   if (!gh) return;
@@ -2031,7 +2060,7 @@ function renderHint() {
   gh.classList.toggle("err", /不足|已满/.test(lastHintMsg));
 }
 function setStatus(msg) {
-  lastHintMsg = (phase === "fight" && msg) ? msg : GRID_HINT_DEF;
+  lastHintMsg = (phase === "fight" && msg) ? msg : hintDef();
   renderHint();
 }
 
@@ -2216,6 +2245,17 @@ cv.addEventListener("click", e => {
   }
   refreshStats();
 });
+function autoDeploy(u) {   // 新兵自动上阵到最需要的格（可再拖调整）
+  if (!u || u.isWeapon || fieldCount() >= popCap()) return false;
+  const backRow = u.cls === "archer" || u.cls === "priest";
+  const rows = backRow ? [ROWS - 1, ROWS - 2, ROWS - 3] : [ROWS - 3, ROWS - 2, ROWS - 1];
+  const colScore = c => alive("foe").filter(f => f.col === c).length * 10 + (mainCols.includes(c) ? 5 : 0) - Math.abs(c - 2);
+  const cols = [0, 1, 2, 3, 4].sort((a, b) => colScore(b) - colScore(a));
+  for (const c of cols) for (const r of rows) {
+    if (!units.some(v => v.col === c && v.row === r && v.state !== "dead")) return tryDeploy(u, c, r);
+  }
+  return false;
+}
 function tryDeploy(u, col, row) {
   if (u && u.isWeapon) { setStatus(`${u.name} 是神兵——拖到本命武将身上装备`); return false; }
   if (bench.indexOf(u) < 0) return false;
@@ -2954,12 +2994,17 @@ function startFight() {
   setStatus();
   refreshStats(); renderShop(); renderInv();
   startBgm();
-  popups.push({ x: COLS / 2 - 0.5, y: ROWS / 2 - 1, text: "敌 军 来 袭 !", color: "#8a2818", born: performance.now(), big: true });
-  battleCycles = 0; breachCount = 0;
+  popups.push({ x: COLS / 2 - 0.5, y: ROWS / 2 - 1, text: round === 1 ? "先 招 兵 !" : "敌 军 来 袭 !", color: "#8a2818", born: performance.now(), big: true });
+  battleCycles = 0; breachCount = 0; lostCol = -1;
   spawnQueue = []; nextWaveAt = 0;
   queueWave();
   setStatus();
-  nextSpawnAt = performance.now() + 800;
+  nextSpawnAt = performance.now() + (round === 1 ? 14000 : 800);
+  if (round === 1) {
+    setTimeout(() => { if (phase === "fight") showGridToast("👆 连3个相同的字试试"); }, 900);
+    setTimeout(() => { if (phase === "fight" && !units.some(v => v.side === "me" && v.hero)) showGridToast("发光的字连起来=名将！"); }, 6500);
+    setTimeout(() => { if (phase === "fight") { showGridToast("曹军来了！守住五路城墙"); playSfx("Se_m_06", 0.4); } }, 12500);
+  }
   for (const u of alive("me")) u.nextActAt = performance.now() + Math.random() * 600;
 }
 document.getElementById("refresh").onclick = () => regenGrid(false);
