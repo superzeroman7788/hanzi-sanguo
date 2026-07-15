@@ -93,11 +93,11 @@ const CAO_GENERALS = [
 const CAO_BOSS = { id: "caocao", name: "曹操", cls: "lancer", faction: "魏", skillName: "挟天子令诸侯" };
 // 敌方专用小兵（字库与我方刀枪弓医骑分离）：卒=杂兵海 马=快速兵 校=血厚精英
 const FOE_TYPES = [
-  { id: "zu",   char: "卒", cls: "infantry", cost: 1 },
-  { id: "ma",   char: "马", cls: "cavalry",  cost: 2 },
-  { id: "xiao", char: "校", cls: "infantry", cost: 3, hpM: 1.7, slow: true },
+  { id: "zu",   char: "卒", cls: "infantry", cost: 1, hpB: 70,  atkB: 10 },
+  { id: "ma",   char: "马", cls: "cavalry",  cost: 2, hpB: 55,  atkB: 9 },
+  { id: "xiao", char: "校", cls: "infantry", cost: 3, hpB: 200, atkB: 12, slow: true },
 ];
-const defOfFoeType = t => ({ kind: "class", id: "f_" + t.id, char: t.char, cls: t.cls, cost: t.cost, hpM: t.hpM || 1, slow: !!t.slow });
+const defOfFoeType = t => ({ kind: "class", id: "f_" + t.id, char: t.char, cls: t.cls, cost: t.cost, hpB: t.hpB, atkB: t.atkB, slow: !!t.slow });
 // 神兵：连出武器名获得装备；装给本命武将触发共鸣
 const WEAPONS = [
   { id: "shemao",    name: "丈八蛇矛",   icon: "26", hero: "zhangfei" },
@@ -409,7 +409,7 @@ function makeUnit(def, side, col, row, star = 1, items = []) {
   const foeHpM = side === "foe" ? Math.min(1, 0.5 + round * 0.05) : 1;
   const foeAtkM = side === "foe" ? Math.min(1, 0.55 + round * 0.045) : 1;
   const base = {
-    hp: Math.round(C.hp * m * foeHpM * (def.hpM || 1)), atk: Math.round(C.atk * m * foeAtkM),
+    hp: Math.round((def.hpB || C.hp) * m * foeHpM), atk: Math.round((def.atkB || C.atk) * m * foeAtkM),
     def: C.def + (def.kind === "hero" ? 2 : 0), rng: C.rng, step: C.step,
     hits: C.hits || 1, dodge: C.dodge || 0, heal: C.heal ? Math.round(C.heal * m) : 0,
   };
@@ -921,7 +921,7 @@ function unitActRT(u) {
 const RT_DELAY = { heroskill: 1500, skill: 1400, attack: 1050, heal: 1250, move: 1350, stun: 900, idle: 420 };
 function actDelay(u, kind) {
   let d = RT_DELAY[kind] || 800;
-  if (u.side === "foe" && kind === "move") d = (1600 - Math.min(500, round * 45) + (round === 1 ? 200 : 0)) * (u.slow ? 1.3 : 1);
+  if (u.side === "foe" && kind === "move") d = (3800 - Math.min(1600, round * 160)) * (u.slow ? 1.3 : 1);
   if (u.cls === "cavalry" && kind === "move") d *= 0.7;
   return d * speedMult;
 }
@@ -951,13 +951,13 @@ function runBattleStep(now) {
   if (spawnQueue.length) {
     if (now >= nextSpawnAt) {
       if (spawnOneEnemy(spawnQueue[0] && spawnQueue.shift())) {
-        nextSpawnAt = now + 900 + Math.random() * 500 - Math.min(500, round * 55);
+        nextSpawnAt = now + 1800 + Math.random() * 900 - Math.min(900, round * 90);
       } else {
         nextSpawnAt = now + 700;   // 顶行满，稍后再试
       }
     }
   } else if (!alive("foe").length && wave < waveTotal) {
-    if (!nextWaveAt) nextWaveAt = now + 2600;      // 波间喘息
+    if (!nextWaveAt) nextWaveAt = now + 3600;      // 波间喘息
     if (now >= nextWaveAt) { nextWaveAt = 0; queueWave(); }
   }
   // 药雾结算：每600ms一跳，雾区(±1格)敌中毒/友回血
@@ -1210,8 +1210,10 @@ function computeHints() {
 }
 
 function randGridCell() {
-  const namePool = round <= 3 ? NAME_CHARS_T2 : NAME_CHARS;
-  if (Math.random() < (round <= 2 ? 0.42 : 0.5)) {
+  // 第1关只出姓字（连不成任何名，武将绝对为0，但预告系统存在）
+  const namePool = round <= 1 ? ["刘", "关", "张", "黄"] : round <= 3 ? NAME_CHARS_T2 : NAME_CHARS;
+  const nameProb = round <= 1 ? 0.15 : round === 2 ? 0.35 : 0.5;
+  if (Math.random() < nameProb) {
     return { type: "name", char: namePool[Math.floor(Math.random() * namePool.length)] };
   }
   const odds = SHOP_ODDS[level];
@@ -1307,8 +1309,8 @@ function regenGrid(free) {
     grid.push([]);
     for (let c = 0; c < GRID_COLS; c++) grid[r].push(randGridCell());
   }
-  // 武将稀缺曲线：前2关40%有将(且只有二流)，第3关起必埋，第5关起35%双将
-  const heroChance = round <= 2 ? 0.4 : 1;
+  // 武将稀缺曲线：第1关零武将纯学兵种，第2关50%出二流，第3关起必埋
+  const heroChance = round <= 1 ? 0 : round === 2 ? 0.5 : 1;
   if (Math.random() < heroChance) buryHeroName();
   if (round >= 5 && Math.random() < 0.35) buryHeroName();
   if (Math.random() < 0.3) buryWeaponName();   // 神兵稀有现世（字不进随机池）
