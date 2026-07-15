@@ -2,7 +2,10 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#221a10">
 <title>汉字三国自走棋</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -13,6 +16,7 @@
   }
   html, body { height: 100%; }
   body {
+    position: fixed; inset: 0;
     overflow: hidden; touch-action: manipulation; background: transparent;
     display: flex; justify-content: center; align-items: flex-start;
     user-select: none; -webkit-user-select: none;
@@ -152,6 +156,6 @@
     <canvas id="gridCv"></canvas>
   </div>
   </div>
-  <script src="hanzi.js?v=rt22"></script>
+  <script src="hanzi.js?v=rt23"></script>
 </body>
 </html>
