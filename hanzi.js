@@ -61,18 +61,21 @@ const CLASS_CHARS = [
 ];
 // 姓名字（字盘材料）。一字多将：张→飞/辽 黄→忠/盖 关→羽/平；三字名：诸葛亮
 const NAME_CHARS = ["刘", "备", "关", "羽", "平", "张", "飞", "辽", "赵", "云", "吕", "布", "黄", "忠", "盖", "诸", "葛", "亮"];
+// 前3关随机池只出二流武将的字（一流专属字"羽飞赵云忠吕布诸葛亮"第4关起入池）——武将稀缺曲线的地基
+const NAME_CHARS_T2 = ["刘", "备", "关", "平", "张", "辽", "黄", "盖"];
 // 武将表：两字合体
+// tier1=一流名将(6金,强力,第4关起入盘) tier2=二流武将(4金,过渡,前期主力)
 const HEROES = {
-  liubei:   { name: "刘备", chars: ["刘", "备"], cls: "priest",   faction: "蜀", skillName: "仁德济世" },
-  guanyu:   { name: "关羽", chars: ["关", "羽"], cls: "infantry", faction: "蜀", skillName: "青龙偃月斩" },
-  guanping: { name: "关平", chars: ["关", "平"], cls: "infantry", faction: "蜀", skillName: "随父征战" },
-  zhangfei: { name: "张飞", chars: ["张", "飞"], cls: "lancer",   faction: "蜀", skillName: "燕人咆哮" },
-  zhangliao:{ name: "张辽", chars: ["张", "辽"], cls: "cavalry",  faction: "魏", skillName: "威震逍遥津" },
-  zhaoyun:  { name: "赵云", chars: ["赵", "云"], cls: "cavalry",  faction: "蜀", skillName: "七进七出" },
-  lvbu:     { name: "吕布", chars: ["吕", "布"], cls: "cavalry",  faction: "群", skillName: "无双乱舞" },
-  huangzhong:{name: "黄忠", chars: ["黄", "忠"], cls: "archer",   faction: "蜀", skillName: "百步穿杨" },
-  huanggai: { name: "黄盖", chars: ["黄", "盖"], cls: "infantry", faction: "吴", skillName: "苦肉计" },
-  zhugeliang:{name: "诸葛亮", chars: ["诸", "葛", "亮"], cls: "priest", faction: "蜀", skillName: "锦囊妙计" },
+  liubei:   { name: "刘备", chars: ["刘", "备"], cls: "priest",   faction: "蜀", tier: 2, skillName: "仁德济世" },
+  guanyu:   { name: "关羽", chars: ["关", "羽"], cls: "infantry", faction: "蜀", tier: 1, skillName: "青龙偃月斩" },
+  guanping: { name: "关平", chars: ["关", "平"], cls: "infantry", faction: "蜀", tier: 2, skillName: "随父征战" },
+  zhangfei: { name: "张飞", chars: ["张", "飞"], cls: "lancer",   faction: "蜀", tier: 1, skillName: "燕人咆哮" },
+  zhangliao:{ name: "张辽", chars: ["张", "辽"], cls: "cavalry",  faction: "魏", tier: 2, skillName: "威震逍遥津" },
+  zhaoyun:  { name: "赵云", chars: ["赵", "云"], cls: "cavalry",  faction: "蜀", tier: 1, skillName: "七进七出" },
+  lvbu:     { name: "吕布", chars: ["吕", "布"], cls: "cavalry",  faction: "群", tier: 1, skillName: "无双乱舞" },
+  huangzhong:{name: "黄忠", chars: ["黄", "忠"], cls: "archer",   faction: "蜀", tier: 1, skillName: "百步穿杨" },
+  huanggai: { name: "黄盖", chars: ["黄", "盖"], cls: "infantry", faction: "吴", tier: 2, skillName: "苦肉计" },
+  zhugeliang:{name: "诸葛亮", chars: ["诸", "葛", "亮"], cls: "priest", tier: 1, faction: "蜀", skillName: "锦囊妙计" },
 };
 const HERO_LIST = Object.entries(HEROES).map(([id, h]) => ({ id, ...h }));
 // 敌军=曹军：小兵挂"曹"军旗，末波出曹将讨阵，第10关曹操亲征
@@ -393,10 +396,13 @@ const sellValue = u => (u.hero ? 6 : u.cost) * Math.pow(3, u.star - 1);
 function makeUnit(def, side, col, row, star = 1, items = []) {
   // def: {kind, id, char/name, cls, cost, faction?, skillName?}
   const C = CLASSES[def.cls];
-  const heroMult = def.kind === "hero" ? 1.75 : 1;
+  const heroMult = def.kind === "hero" ? (def.tier === 1 ? 1.8 : 1.45) : 1;
   const m = STAR_MULT[star] * (1 + ((def.cost || 2) - 1) * 0.18) * heroMult;
+  // 敌人是耗材：数值远低于我方，随关卡爬升，第10关才追平
+  const foeHpM = side === "foe" ? Math.min(1, 0.5 + round * 0.05) : 1;
+  const foeAtkM = side === "foe" ? Math.min(1, 0.55 + round * 0.045) : 1;
   const base = {
-    hp: Math.round(C.hp * m), atk: Math.round(C.atk * m),
+    hp: Math.round(C.hp * m * foeHpM), atk: Math.round(C.atk * m * foeAtkM),
     def: C.def + (def.kind === "hero" ? 2 : 0), rng: C.rng, step: C.step,
     hits: C.hits || 1, dodge: C.dodge || 0, heal: C.heal ? Math.round(C.heal * m) : 0,
   };
@@ -419,7 +425,8 @@ function makeUnit(def, side, col, row, star = 1, items = []) {
 }
 const defOfClassChar = c => ({ kind: "class", id: c.id, char: c.char, cls: c.cls, cost: c.cost });
 const defOfNameChar = ch => ({ kind: "name", id: "n_" + ch, char: ch, cls: "namechar", cost: 2 });
-const defOfHero = h => ({ kind: "hero", id: h.id, name: h.name, cls: h.cls, cost: 4, faction: h.faction, skillName: h.skillName });
+const defOfHero = h => ({ kind: "hero", id: h.id, name: h.name, cls: h.cls, cost: 4, faction: h.faction, tier: h.tier || 2, skillName: h.skillName });
+const heroPriceOf = h => (h.tier === 1 ? 6 : 4);
 
 function bakeStats(u, syn) {
   let atkM = 0, hpM = 0, defA = 0, dodgeA = 0, critA = 0, rageM = 1, rngA = 0, hitsA = 0, stepA = 0, skillM = 1;
@@ -907,7 +914,7 @@ function unitActRT(u) {
 const RT_DELAY = { heroskill: 1500, skill: 1400, attack: 1050, heal: 1250, move: 1350, stun: 900, idle: 420 };
 function actDelay(u, kind) {
   let d = RT_DELAY[kind] || 800;
-  if (u.side === "foe" && kind === "move") d = 1600 - Math.min(500, round * 45);   // 关卡越深压得越快
+  if (u.side === "foe" && kind === "move") d = 1600 - Math.min(500, round * 45) + (round === 1 ? 200 : 0);
   if (u.cls === "cavalry" && kind === "move") d *= 0.7;
   return d * speedMult;
 }
@@ -937,13 +944,13 @@ function runBattleStep(now) {
   if (spawnQueue.length) {
     if (now >= nextSpawnAt) {
       if (spawnOneEnemy(spawnQueue[0] && spawnQueue.shift())) {
-        nextSpawnAt = now + 500 + Math.random() * 400;
+        nextSpawnAt = now + 900 + Math.random() * 500 - Math.min(500, round * 55);
       } else {
         nextSpawnAt = now + 700;   // 顶行满，稍后再试
       }
     }
   } else if (!alive("foe").length && wave < waveTotal) {
-    if (!nextWaveAt) nextWaveAt = now + 1600;      // 波间喘息
+    if (!nextWaveAt) nextWaveAt = now + 2600;      // 波间喘息
     if (now >= nextWaveAt) { nextWaveAt = 0; queueWave(); }
   }
   // 药雾结算：每600ms一跳，雾区(±1格)敌中毒/友回血
@@ -1047,9 +1054,9 @@ let mainCols = [];
 function queueWave() {
   wave++;
   battleCycles = 0;
-  mainCols = [Math.floor(Math.random() * COLS)];
+  mainCols = [round === 1 ? 2 : Math.floor(Math.random() * COLS)];
   if (round >= 3) mainCols.push(Math.floor(Math.random() * COLS));
-  let budget = Math.round((4 + round * 2.6) * (1 + (wave - 1) * 0.45));
+  let budget = Math.round((4 + round * 2.6) * (1 + (wave - 1) * 0.45) * (round === 1 ? 0.7 : 1));
   const countCap = Math.min(12, 3 + round);
   const pool = CLASS_CHARS.filter(c => c.cls !== "priest" && c.cost <= Math.min(3, 1 + Math.floor(round / 2)));
   let guard = 60, placed = 0;
@@ -1079,11 +1086,14 @@ function spawnOneEnemy(q) {
   const cols = [];
   for (let c = 0; c < COLS; c++) if (!alive().some(v => v.col === c && v.row === 0)) cols.push(c);
   if (!cols.length) { spawnQueue.unshift(q); return false; }   // 顶行满，稍后再试
+  // 第1关教学：敌人只走中间3列
+  const laneOk = round === 1 ? cols.filter(x => x >= 1 && x <= 3) : cols;
+  const useCols = laneOk.length ? laneOk : cols;
   // 导演：60%概率压主攻列
   let c;
-  const openMain = mainCols.filter(m => cols.includes(m));
+  const openMain = mainCols.filter(m => useCols.includes(m));
   if (openMain.length && Math.random() < 0.6) c = openMain[Math.floor(Math.random() * openMain.length)];
-  else c = cols[Math.floor(Math.random() * cols.length)];
+  else c = useCols[Math.floor(Math.random() * useCols.length)];
   const u = makeUnit(q.def, "foe", c, 0, q.star);
   u.y = -1.1;                       // 自上滑入
   if (u.hero) {
@@ -1135,7 +1145,7 @@ function fixWall(col) {
 }
 
 // ---------- 字盘：多排连线找名字 ----------
-const GRID_COLS = 8, GRID_ROWS = 3;
+const GRID_COLS = 8, GRID_ROWS = 4;
 const G_CELL = 45, G_GAP = 3, G_PAD = 3;
 const HERO_PRICE = 5;
 const DEPLOY_ROWS_N = 2;   // 新制部署行数
@@ -1152,7 +1162,7 @@ function pathCost(path) {
   const cells = path.map(p => grid[p.r][p.c]);
   if (cells.some(x => !x)) return null;
   const h = heroByString(pathString(path));
-  if (h) return HERO_PRICE;
+  if (h) return heroPriceOf(h);
   if (cells.every(x => x.type === "class" && x.clsId === cells[0].clsId)) {
     const C = CLASS_CHARS.find(x => x.id === cells[0].clsId);
     return C.cost * path.length;
@@ -1193,8 +1203,9 @@ function computeHints() {
 }
 
 function randGridCell() {
-  if (Math.random() < 0.5) {
-    return { type: "name", char: NAME_CHARS[Math.floor(Math.random() * NAME_CHARS.length)] };
+  const namePool = round <= 3 ? NAME_CHARS_T2 : NAME_CHARS;
+  if (Math.random() < (round <= 2 ? 0.42 : 0.5)) {
+    return { type: "name", char: namePool[Math.floor(Math.random() * namePool.length)] };
   }
   const odds = SHOP_ODDS[level];
   let roll = Math.random() * 100, cost = 1;
@@ -1232,8 +1243,13 @@ function buryHeroName() {
   const owned = new Set();
   for (const u of units) if (u.side === "me" && u.hero) owned.add(u.name);
   for (const u of bench) if (u && u.hero) owned.add(u.name);
-  const pool = HERO_LIST.filter(h => !owned.has(h.name));
-  const h = (pool.length ? pool : HERO_LIST)[Math.floor(Math.random() * (pool.length ? pool.length : HERO_LIST.length))];
+  // tier门槛：第3关前只埋二流；4-6关一半概率出一流；第7关起七成一流
+  const t1Chance = round <= 3 ? 0 : round <= 6 ? 0.5 : 0.7;
+  const wantT1 = Math.random() < t1Chance;
+  let pool = HERO_LIST.filter(h => !owned.has(h.name) && (wantT1 ? h.tier === 1 : h.tier === 2));
+  if (!pool.length) pool = HERO_LIST.filter(h => !owned.has(h.name));
+  if (!pool.length) pool = HERO_LIST;
+  const h = pool[Math.floor(Math.random() * pool.length)];
   let best = null, bestScore = -1;
   for (let attempt = 0; attempt < 50; attempt++) {
     const path = tryWalkPath(h.chars.length);
@@ -1284,8 +1300,10 @@ function regenGrid(free) {
     grid.push([]);
     for (let c = 0; c < GRID_COLS; c++) grid[r].push(randGridCell());
   }
-  buryHeroName();                              // 必埋一个
-  if (Math.random() < 0.35) buryHeroName();    // 有时埋两个
+  // 武将稀缺曲线：前2关40%有将(且只有二流)，第3关起必埋，第5关起35%双将
+  const heroChance = round <= 2 ? 0.4 : 1;
+  if (Math.random() < heroChance) buryHeroName();
+  if (round >= 5 && Math.random() < 0.35) buryHeroName();
   if (Math.random() < 0.3) buryWeaponName();   // 神兵稀有现世（字不进随机池）
   gridPath = [];
   computeHints();
@@ -1386,7 +1404,7 @@ function commitPath(path) {
   // 连成武将名
   const h = heroByString(pathString(path));
   if (h) {
-    const hp = disc(HERO_PRICE);
+    const hp = disc(heroPriceOf(h));
     if (gold < hp) { setStatus(`军资不足（征募${h.name}需${hp}金）`); showGridToast(`还差 ${hp - gold} 金`); playSfx("Se_m_19", 0.3); return "keep"; }
     const slot = bench.indexOf(null);
     if (slot === -1) { setStatus("备战席已满！先上阵或回收"); showGridToast("备战席已满"); playSfx("Se_m_19", 0.3); return "keep"; }
@@ -1397,7 +1415,8 @@ function commitPath(path) {
     consumePath(path);
     heroAnim = { name: h.name, chars: h.chars, born: performance.now() };
     playSfx("Se_m_28", 0.7);
-    doShake(5);
+    doShake(h.tier === 1 ? 9 : 5);
+    if (h.tier === 1) showGridToast(`一流名将 ${h.name} 应募！`);
     claimWeapons(nu);
     checkMerge(nu.defId, 1);
     setStatus(`${h.name} 应募登场！`);
