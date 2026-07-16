@@ -37,7 +37,7 @@ const CLASSES = {
   infantry: { name: "刀兵", hp: 200, atk: 24, def: 10, rng: 1, step: 1, mode: "front",  skill: "旋风斩" },
   lancer:   { name: "枪兵", hp: 100, atk: 15, def: 6,  rng: 2, step: 1, mode: "pierce", skill: "贯穿突刺" },
   archer:   { name: "弓手", hp: 65,  atk: 15, def: 3,  rng: 9, step: 1, mode: "column", skill: "连珠箭" },
-  priest:   { name: "医师", hp: 75,  atk: 8,  def: 3,  rng: 9, step: 1, heal: 6, mode: "mist", skill: "回春" },
+  priest:   { name: "医师", hp: 75,  atk: 8,  def: 3,  rng: 2, step: 1, heal: 6, mode: "mist", skill: "回春" },   // rng 只影响英雄医(刘备/诸葛)：近程辅助，不许全场狙击
   cavalry:  { name: "铁骑", hp: 110, atk: 14, def: 7,  rng: 1, step: 2, mode: "rover",  skill: "冲锋" },
   namechar: { name: "字",   hp: 65,  atk: 8,  def: 2,  rng: 1, step: 1, skill: "" },   // 姓名字：弱单位，等待合体
 };
@@ -61,7 +61,7 @@ const NAME_CHARS_T2 = ["刘", "备", "关", "平", "张", "辽", "黄", "盖"];
 // 武将表：两字合体
 // tier1=一流名将(6金,强力,第4关起入盘) tier2=二流武将(4金,过渡,前期主力)
 const HEROES = {
-  liubei:   { name: "刘备", chars: ["刘", "备"], cls: "priest",   faction: "蜀", tier: 2, skillName: "仁德济世" },
+  liubei:   { name: "刘备", chars: ["刘", "备"], cls: "priest",   faction: "蜀", tier: 2, atkM: 0.45, skillName: "仁德济世" },
   guanyu:   { name: "关羽", chars: ["关", "羽"], cls: "infantry", faction: "蜀", tier: 1, skillName: "青龙偃月斩" },
   guanping: { name: "关平", chars: ["关", "平"], cls: "infantry", faction: "蜀", tier: 2, skillName: "随父征战" },
   zhangfei: { name: "张飞", chars: ["张", "飞"], cls: "lancer",   faction: "蜀", tier: 1, skillName: "燕人咆哮" },
@@ -90,7 +90,7 @@ const CAO_BOSS = { id: "caocao", name: "曹操", cls: "lancer", faction: "魏", 
 // 敌人是行为题不是数值包：每种敌人制造一类问题，对应一类兵种答案
 const FOE_TYPES = [
   { id: "zu",   char: "卒", cls: "infantry", cost: 1, hpB: 70,  atkB: 10, minR: 1, tip: "稳步推进——基础防线即可" },
-  { id: "ma",   char: "马", cls: "cavalry",  cost: 2, hpB: 55,  atkB: 9,  minR: 2, tip: "高速冲线——前排刀兵能挡住" },
+  { id: "ma",   char: "马", cls: "cavalry",  cost: 2, hpB: 70,  atkB: 9,  minR: 2, tip: "高速冲线——前排刀兵能挡住" },
   { id: "dun",  char: "盾", cls: "infantry", cost: 2, hpB: 120, atkB: 8,  minR: 3, shield: true, tip: "盾挡箭矢——枪兵贯穿可破盾" },
   { id: "xiao", char: "校", cls: "infantry", cost: 3, hpB: 200, atkB: 12, minR: 4, slow: true, tip: "血厚慢推——毒雾加集火" },
   { id: "qi2",  char: "旗", cls: "priest",   cost: 3, hpB: 60,  atkB: 5,  minR: 4, banner: true, tip: "旗令强化同路敌军——弓兵优先点杀" },
@@ -427,13 +427,13 @@ function makeUnit(def, side, col, row, star = 1, items = []) {
   const foeHpM = side === "foe" ? Math.min(1, 0.5 + round * 0.05) : 1;
   const foeAtkM = side === "foe" ? Math.min(1, 0.55 + round * 0.045) : 1;
   const base = {
-    hp: Math.round((def.hpB || C.hp) * m * foeHpM), atk: Math.round((def.atkB || C.atk) * m * foeAtkM),
+    hp: Math.round((def.hpB || C.hp) * m * foeHpM), atk: Math.round((def.atkB || C.atk) * m * foeAtkM * (def.atkM || 1)),
     def: C.def + (def.kind === "hero" ? 2 : 0), rng: C.rng, step: C.step,
     hits: C.hits || 1, dodge: C.dodge || 0, heal: C.heal ? Math.round(C.heal * m) : 0,
   };
   const u = {
     uid: ++uidSeq,
-    kind: def.kind, defId: def.id, char: def.char || null,
+    kind: def.kind, defId: def.id, char: def.char || null, tier: def.tier || 0,
     name: def.kind === "hero" ? def.name : def.char,
     cls: def.cls, cost: def.cost || 2, faction: def.faction || null,
     skillName: def.skillName || null, hero: def.kind === "hero", slow: !!def.slow,
@@ -451,7 +451,7 @@ function makeUnit(def, side, col, row, star = 1, items = []) {
 }
 const defOfClassChar = c => ({ kind: "class", id: c.id, char: c.char, cls: c.cls, cost: c.cost });
 const defOfNameChar = ch => ({ kind: "name", id: "n_" + ch, char: ch, cls: "namechar", cost: 2 });
-const defOfHero = h => ({ kind: "hero", id: h.id, name: h.name, cls: h.cls, cost: 4, faction: h.faction, tier: h.tier || 2, skillName: h.skillName });
+const defOfHero = h => ({ kind: "hero", id: h.id, name: h.name, cls: h.cls, cost: 4, faction: h.faction, tier: h.tier || 2, atkM: h.atkM || 1, skillName: h.skillName });
 const heroPriceOf = h => (h.tier === 1 ? 6 : 4);
 
 function bakeStats(u, syn) {
@@ -764,7 +764,8 @@ const SKILLS = {
       }
       return true;
     }
-    const tgt = foes.filter(f => dist(u, f) <= 4).sort((a, b) => dist(u, a) - dist(u, b))[0];
+    if (u.tier !== 1) return false;   // 爆焰=诸葛亮专属；刘备只有回春（仁德济世不杀人）
+    const tgt = foes.filter(f => dist(u, f) <= 2).sort((a, b) => dist(u, a) - dist(u, b))[0];
     if (!tgt) return false;
     announce(u, "爆焰", "#ff9040");
     playSfx("Se_m_01");
@@ -814,7 +815,7 @@ function unitActRT(u) {
   const foes = alive(u.side === "me" ? "foe" : "me");
 
   // 怒气大招（敌我通用）
-  const engaged = u.side !== "foe" || foes.some(f => dist(u, f) <= 1);
+  const engaged = u.side !== "foe" || foes.some(f => f.col === u.col && f.row === u.row + 1);
   if (u.rage >= RAGE_MAX && u.hero && foes.length && engaged) {
     if (SKILLS[u.cls](u, foes)) {
       u.rage = 0;
@@ -927,8 +928,8 @@ function unitActRT(u) {
   }
   // 攻击射程内目标
   let inRange = foes.filter(f => dist(u, f) <= u.rng);
-  // 敌军以突围为先（PvZ式）：一律压到贴脸才动手，远程射程只属于我方
-  if (u.side === "foe") inRange = inRange.filter(f => dist(u, f) <= 1);
+  // 敌军以突围为先（PvZ式）：只啃正前方挡路的，侧列目标无视继续压进
+  if (u.side === "foe") inRange = inRange.filter(f => f.col === u.col && f.row === u.row + 1);
   inRange.sort((a, b) => dist(u, a) - dist(u, b));
   if (inRange.length) {
     const tgt = inRange[0];
@@ -970,6 +971,7 @@ function actDelay(u, kind) {
   if (u.side === "foe" && kind === "move") {
     d = (3800 - Math.min(1600, round * 160)) * (u.slow ? 1.3 : 1) * (gridPath.length ? 1.5 : 1);
     if (!u.banner && alive("foe").some(b => b.banner && b !== u && b.col === u.col)) d *= 0.75;   // 旗令提速
+    if (u.cls === "cavalry" && u.row >= 2) d *= 0.5;   // 马内线疾驰：冲线只给两发反应窗口，必须提前拦截
   }
   if (u.cls === "cavalry" && kind === "move") d *= 0.7;
   return d * speedMult;
@@ -1117,30 +1119,31 @@ function defById(defId) {
 }
 function unitDef(u) { return defById(u.defId); }
 // 前五关固定波次：同一道题输了重来还是它——失败转化为解法记忆；第6关起半随机
+// lanes=逐兵固定出生列（与comp展开顺序一一对应）——固定题不过概率导演
 const FIXED_WAVES = {
   1: [
-    { comp: { zu: 2 }, main: [2] },
-    { comp: { zu: 4 }, main: [2] },
+    { comp: { zu: 2 }, main: [2], lanes: [2, 2] },
+    { comp: { zu: 4 }, main: [2], lanes: [2, 1, 2, 3] },
   ],
   2: [
-    { comp: { zu: 3 }, main: [1] },
-    { comp: { ma: 4 }, main: [1, 3] },
-    { comp: { zu: 3, ma: 2 }, main: [1] },   // 压回第2波冲过的路：漏了不修墙=城破
+    { comp: { zu: 3 }, main: [1], lanes: [1, 1, 1] },
+    { comp: { ma: 4 }, main: [1, 3], lanes: [1, 3, 1, 3] },
+    { comp: { zu: 3, ma: 2 }, main: [1], lanes: [1, 1, 2, 1, 1] },   // 压回第2波的路：漏了不修=城破
   ],
   3: [
-    { comp: { dun: 2, zu: 2 }, main: [2] },
-    { comp: { dun: 3, zu: 2 }, main: [0] },
-    { comp: { dun: 2, zu: 4 }, main: [2, 4] },
+    { comp: { dun: 2, zu: 2 }, main: [2], lanes: [2, 2, 2, 2] },
+    { comp: { dun: 3, zu: 2 }, main: [0], lanes: [0, 0, 0, 0, 0] },
+    { comp: { dun: 2, zu: 4 }, main: [2, 4], lanes: [2, 4, 2, 4, 2, 4] },
   ],
   4: [
-    { comp: { dun: 2, qi2: 1, zu: 2 }, main: [1] },
-    { comp: { xiao: 1, zu: 4 }, main: [3] },
-    { comp: { dun: 2, qi2: 1, ma: 2 }, main: [1, 3] },
+    { comp: { dun: 2, qi2: 1, zu: 2 }, main: [1], lanes: [1, 1, 1, 1, 1] },   // 盾先旗后：护送阵型
+    { comp: { xiao: 1, zu: 4 }, main: [3], lanes: [3, 3, 3, 3, 3] },
+    { comp: { dun: 2, qi2: 1, ma: 2 }, main: [1, 3], lanes: [1, 1, 1, 3, 3] },
   ],
   5: [
-    { comp: { zu: 3, ma: 1 }, main: [0] },
-    { comp: { dun: 2, zu: 3 }, main: [4] },
-    { comp: { qi2: 1, dun: 2, xiao: 1, zu: 3 }, main: [2], hero: "xiahoudun" },
+    { comp: { zu: 3, ma: 1 }, main: [0], lanes: [0, 0, 0, 0] },
+    { comp: { dun: 2, zu: 3 }, main: [4], lanes: [4, 4, 4, 4, 4] },
+    { comp: { qi2: 1, dun: 2, xiao: 1, zu: 3 }, main: [2], lanes: [2, 2, 2, 2, 2, 2, 2], hero: "xiahoudun", heroLane: 2 },
   ],
 };
 function wavesFor(stage) { return FIXED_WAVES[stage] ? FIXED_WAVES[stage].length : Math.min(6, 2 + Math.floor((stage - 1) / 2)); }
@@ -1153,15 +1156,16 @@ function queueWave() {
   battleCycles = 0;
   const tmpl = FIXED_WAVES[round] && FIXED_WAVES[round][wave - 1];
   if (tmpl) {
-    // 固定波次：敌兵组合与主攻路线写死，可被学习与破解
+    // 固定波次：敌兵组合、主攻路线、逐兵出生列全部写死——固定题不走概率导演
     mainCols = tmpl.main.slice();
+    let li = 0;
     for (const [tid, n] of Object.entries(tmpl.comp)) {
       const t = FOE_TYPES.find(x => x.id === tid);
-      for (let i = 0; i < n; i++) spawnQueue.push({ def: defOfFoeType(t), star: 1 });
+      for (let i = 0; i < n; i++) spawnQueue.push({ def: defOfFoeType(t), star: 1, lane: tmpl.lanes ? tmpl.lanes[li++] : null });
     }
     if (tmpl.hero) {
       const h = CAO_GENERALS.find(x => x.id === tmpl.hero) || CAO_GENERALS[0];
-      spawnQueue.push({ def: defOfHero(h), star: 1 });
+      spawnQueue.push({ def: defOfHero(h), star: 1, lane: tmpl.heroLane != null ? tmpl.heroLane : null });
     }
   } else {
     mainCols = [Math.floor(Math.random() * COLS)];
@@ -1210,14 +1214,19 @@ function spawnOneEnemy(q) {
   const cols = [];
   for (let c = 0; c < COLS; c++) if (!alive().some(v => v.col === c && v.row === 0)) cols.push(c);
   if (!cols.length) { spawnQueue.unshift(q); return false; }   // 顶行满，稍后再试
-  // 第1关教学：敌人只走中间3列
-  const laneOk = round === 1 ? cols.filter(x => x >= 1 && x <= 3) : cols;
-  const useCols = laneOk.length ? laneOk : cols;
-  // 导演：60%概率压主攻列
   let c;
-  const openMain = mainCols.filter(m => useCols.includes(m));
-  if (openMain.length && Math.random() < 0.6) c = openMain[Math.floor(Math.random() * openMain.length)];
-  else c = useCols[Math.floor(Math.random() * useCols.length)];
+  if (q.lane != null) {
+    // 固定出生列：被占就等，绝不换列（固定题的题面不许漂移）
+    if (!cols.includes(q.lane)) { spawnQueue.unshift(q); return false; }
+    c = q.lane;
+  } else {
+    // 半随机波次（第6关起）：60%概率压主攻列
+    const laneOk = round === 1 ? cols.filter(x => x >= 1 && x <= 3) : cols;
+    const useCols = laneOk.length ? laneOk : cols;
+    const openMain = mainCols.filter(m => useCols.includes(m));
+    if (openMain.length && Math.random() < 0.6) c = openMain[Math.floor(Math.random() * openMain.length)];
+    else c = useCols[Math.floor(Math.random() * useCols.length)];
+  }
   const u = makeUnit(q.def, "foe", c, 0, q.star);
   u.y = -1.1;                       // 自上滑入
   if (u.hero) {
@@ -2643,6 +2652,7 @@ function roundRectU(x, y, w, h, rs) {
   ctx.arcTo(x, y, x + w, y, rs[0]);
   ctx.closePath();
 }
+
 function drawTile(u, px, py, now, sizeBase) {
   const S = Math.round(((sizeBase || 52) + (u.star - 1) * 3) * (u.hero ? 1.18 : 1));
   const half = S / 2;
