@@ -1874,9 +1874,9 @@ function drawGrid(now) {
     gtx.stroke();
     // 字
     gtx.fillStyle = cell.type === "name" ? "#4a3020" : "#241b12";
-    gtx.font = `bold ${Math.round(G_CELL * 0.56)}px "Kaiti SC", "STKaiti", "KaiTi", serif`;
+    gtx.font = `bold ${Math.round(G_CELL * 0.56)}px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif`;
     gtx.textAlign = "center"; gtx.textBaseline = "middle";
-    gtx.fillText(cell.char, x + G_CELL / 2, y + G_CELL / 2 + 1);
+    inkGlyph(gtx, cell.char, x + G_CELL / 2, y + G_CELL / 2 + 1, cell.type === "name" ? "#4a3020" : "#241b12", r * 7 + c);
     // 兵种字：右下角小数字标价格
     if (cell.type === "class") {
       const C = CLASS_CHARS.find(v => v.id === cell.clsId);
@@ -1896,7 +1896,7 @@ function drawGrid(now) {
       gtx.save();
       gtx.globalAlpha = Math.max(0, a);
       const cx = gridCv.width / 2, cy = gridCv.height / 2;
-      gtx.font = 'bold 21px "Kaiti SC", "STKaiti", "KaiTi", serif';
+      gtx.font = 'bold 21px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
       const w = gtx.measureText(gridToast.text).width + 44;
       gtx.fillStyle = "rgba(138,40,24,.94)";
       roundRectGU(cx - w / 2, cy - 22, w, 44, [8, 6, 9, 7]);
@@ -2463,7 +2463,7 @@ function drawBoard() {
       ctx.fillStyle = pg;
       ctx.fillRect(mc * TILE, 0, TILE, ROWS * TILE * 0.6);
       ctx.fillStyle = "#a02818";
-      ctx.font = 'bold 13px "Kaiti SC", "STKaiti", "KaiTi", serif';
+      ctx.font = 'bold 13px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
       ctx.textAlign = "center";
       ctx.fillText("⚠ 集结", mc * TILE + TILE / 2, 16);
     }
@@ -2474,11 +2474,11 @@ function drawBoard() {
     ctx.fill();
     ctx.strokeStyle = "#8a6a1c"; ctx.lineWidth = 1.5; ctx.stroke();
     ctx.fillStyle = "#f4c860";
-    ctx.font = 'bold 15px "Kaiti SC", "STKaiti", "KaiTi", serif';
+    ctx.font = 'bold 15px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
     ctx.fillText(`第${wave}/${waveTotal}波 ${previewComp} · ${secs}秒`, COLS * TILE / 2, 82);
     if (previewTip) {
       ctx.fillStyle = "#e8d8b0";
-      ctx.font = '12px "Kaiti SC", "STKaiti", "KaiTi", serif';
+      ctx.font = '12px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
       ctx.fillText(previewTip, COLS * TILE / 2, 104);
     }
     ctx.textAlign = "left";
@@ -2562,7 +2562,7 @@ function drawBoard() {
     ctx.setLineDash([]);
     ctx.lineDashOffset = 0;
     ctx.fillStyle = "rgba(140,95,30,.75)";
-    ctx.font = '14px "Kaiti SC", "STKaiti", "KaiTi", serif';
+    ctx.font = '14px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
     ctx.textAlign = "center";
     "部署区".split("").forEach((ch, i) => ctx.fillText(ch, COLS * TILE - 14, dy + 24 + i * 16));
     ctx.textAlign = "left";
@@ -2598,7 +2598,7 @@ function drawBoard() {
     ctx.strokeRect(bx + 0.75, BENCH_Y0 + 0.75, BENCH_TILE - 1.5, BENCH_TILE - 1.5);
     ctx.lineWidth = 1;
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.font = 'bold 17px "Kaiti SC", "STKaiti", "KaiTi", serif';
+    ctx.font = 'bold 17px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
     ctx.fillStyle = "#f4e4c4";
     ctx.fillText("卖", bx + BENCH_TILE / 2, BENCH_Y0 + BENCH_TILE / 2 - 5);
     ctx.font = "9px sans-serif";
@@ -2653,6 +2653,17 @@ function roundRectU(x, y, w, h, rs) {
   ctx.closePath();
 }
 
+// 毛笔味写字：手写微歪 + 墨晕加重（笔画显厚、有飞白感）
+function inkGlyph(g, ch, x, y, col, seed) {
+  g.save();
+  g.translate(x, y);
+  g.rotate((((seed % 5) - 2)) * 0.022);
+  g.fillStyle = col;
+  g.shadowColor = col; g.shadowBlur = 1.8; g.shadowOffsetX = 0.4; g.shadowOffsetY = 0.5;
+  g.fillText(ch, 0, 0);
+  g.shadowBlur = 0; g.shadowOffsetX = 0; g.shadowOffsetY = 0;
+  g.restore();
+}
 function drawTile(u, px, py, now, sizeBase) {
   const S = Math.round(((sizeBase || 52) + (u.star - 1) * 3) * (u.hero ? 1.18 : 1));
   const half = S / 2;
@@ -2741,17 +2752,17 @@ function drawTile(u, px, py, now, sizeBase) {
   if (u.hero) {
     const n = u.name.length;
     const fs = n >= 3 ? Math.round(S * 0.3) : Math.round(S * 0.42);
-    ctx.font = `bold ${fs}px "Kaiti SC", "STKaiti", "KaiTi", serif`;
+    ctx.font = `bold ${fs}px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif`;
     u.name.split("").forEach((ch, i) => {
-      ctx.fillText(ch, px + ox, CY + (i - (n - 1) / 2) * fs * 1.02);
+      inkGlyph(ctx, ch, px + ox, CY + (i - (n - 1) / 2) * fs * 1.02, txt, u.uid + i);
     });
   } else {
     // 幻化：接敌时字淡出，兵器形升起（刀→盾 弓→弩）
     const mk = morphActive;
     ctx.save();
     ctx.globalAlpha *= (1 - mk * 0.88);
-    ctx.font = `bold ${Math.round(S * 0.62)}px "Kaiti SC", "STKaiti", "KaiTi", serif`;
-    ctx.fillText(u.char, px + ox, CY + 1);
+    ctx.font = `bold ${Math.round(S * 0.62)}px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif`;
+    inkGlyph(ctx, u.char, px + ox, CY + 1, txt, u.uid);
     ctx.restore();
     if (mk > 0.03) {
       const recoil = u.state === "attack" ? Math.max(0, 1 - (now - u.animStart) / 200) : 0;
@@ -2877,66 +2888,91 @@ function unitEngaged(u) {
   if (mode === "rover") return foes.some(f => f.row >= 3);
   return false;
 }
-// 刀→纹章大盾 + 顶端戳刀（挡+反击，机制即形态）
+// 刀→国风兽面盾 + 顶端戳刀（浓墨粗笔）
 function drawShieldForm(cx, cy, S, hi, lo, rim, now, k) {
   ctx.save();
   ctx.globalAlpha *= k;
-  const w = S * 0.74, top = cy - S * 0.5, bot = cy + S * 0.52;
-  // 顶端戳刀（明显上下抽动）
+  const ink = "#241811";
+  const w = S * 0.78, top = cy - S * 0.5, bot = cy + S * 0.55;
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  // 顶端戳刀（毛笔短锋，上下抽动）
   const poke = Math.max(0, Math.sin(now / 115)) * 11;
-  ctx.strokeStyle = "#5a4428"; ctx.fillStyle = "#ece4d4"; ctx.lineWidth = 1.4;
-  const kx = cx + w * 0.3, ky = top + 2 - poke;
-  ctx.beginPath(); ctx.moveTo(kx - 3, ky + 15); ctx.lineTo(kx, ky); ctx.lineTo(kx + 3, ky + 15); ctx.closePath();
-  ctx.fill(); ctx.stroke();
-  // 纹章盾 heater 轮廓
+  const kx = cx + w * 0.26, ky = top + 2 - poke;
+  ctx.strokeStyle = ink; ctx.lineWidth = 3.2;
+  ctx.beginPath(); ctx.moveTo(kx, ky + 15); ctx.lineTo(kx, ky); ctx.stroke();
+  ctx.fillStyle = ink;
+  ctx.beginPath(); ctx.moveTo(kx - 3.2, ky + 5); ctx.lineTo(kx, ky - 3); ctx.lineTo(kx + 3.2, ky + 5); ctx.closePath(); ctx.fill();
+  // 盾体墨染
   ctx.beginPath();
   ctx.moveTo(cx - w / 2, top);
   ctx.lineTo(cx + w / 2, top);
-  ctx.lineTo(cx + w / 2, cy + S * 0.06);
-  ctx.quadraticCurveTo(cx + w * 0.42, bot, cx, bot);
-  ctx.quadraticCurveTo(cx - w * 0.42, bot, cx - w / 2, cy + S * 0.06);
+  ctx.lineTo(cx + w / 2, cy + S * 0.05);
+  ctx.quadraticCurveTo(cx + w * 0.4, bot, cx, bot);
+  ctx.quadraticCurveTo(cx - w * 0.4, bot, cx - w / 2, cy + S * 0.05);
   ctx.closePath();
-  const g = ctx.createLinearGradient(cx - w / 2, top, cx + w / 2, bot);
-  g.addColorStop(0, hi); g.addColorStop(0.5, lo); g.addColorStop(1, hi);
+  const g = ctx.createLinearGradient(cx, top, cx, bot);
+  g.addColorStop(0, hi); g.addColorStop(1, lo);
   ctx.fillStyle = g; ctx.fill();
-  ctx.lineWidth = 3; ctx.strokeStyle = rim; ctx.stroke();
-  // 十字纹章
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 3.6; ctx.strokeStyle = ink; ctx.stroke();
+  // 铜钉环边
+  ctx.fillStyle = ink;
+  for (let i = 0; i < 7; i++) {
+    const t = i / 6, ex = cx - w / 2 + w * t, ey = top + 3;
+    ctx.beginPath(); ctx.arc(ex, ey, 1.3, 0, 7); ctx.fill();
+  }
+  // 兽面铺首：怒眉 + 双目 + 獠牙口
+  const ey = cy - S * 0.05;
+  ctx.strokeStyle = ink; ctx.lineWidth = 2.4;
   ctx.beginPath();
-  ctx.moveTo(cx, top + 6); ctx.lineTo(cx, bot - 7);
-  ctx.moveTo(cx - w * 0.3, cy - 3); ctx.lineTo(cx + w * 0.3, cy - 3);
+  ctx.moveTo(cx - w * 0.3, ey - 7); ctx.quadraticCurveTo(cx - w * 0.1, ey - 4, cx - 3.5, ey + 1);
+  ctx.moveTo(cx + w * 0.3, ey - 7); ctx.quadraticCurveTo(cx + w * 0.1, ey - 4, cx + 3.5, ey + 1);
   ctx.stroke();
-  ctx.beginPath(); ctx.arc(cx, cy - 3, 4.5, 0, Math.PI * 2); ctx.fillStyle = rim; ctx.fill();
+  ctx.fillStyle = ink;
+  ctx.beginPath(); ctx.ellipse(cx - w * 0.17, ey + 3, 2.6, 3.4, 0.35, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx + w * 0.17, ey + 3, 2.6, 3.4, -0.35, 0, 7); ctx.fill();
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.moveTo(cx - w * 0.22, ey + 13); ctx.quadraticCurveTo(cx, ey + 20, cx + w * 0.22, ey + 13);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(cx - 5, ey + 15.5); ctx.lineTo(cx - 3, ey + 22);
+  ctx.moveTo(cx + 5, ey + 15.5); ctx.lineTo(cx + 3, ey + 22);
+  ctx.stroke();
+  ctx.lineCap = "butt"; ctx.lineJoin = "miter";
   ctx.restore();
 }
-// 弓→大弩，蓄力放箭循环，放箭后坐（待发弩箭指向敌人）
+// 弓→连弩，浓墨粗笔（弓臂/弩身粗锋，朱红弩箭）
 function drawCrossbowForm(cx, cy, S, hi, lo, rim, now, k, recoil) {
   ctx.save();
   ctx.globalAlpha *= k;
+  const ink = "#241811";
   const yy = cy + recoil * 5;
-  // 弩身竖托
-  ctx.strokeStyle = "#6a4a2c"; ctx.lineCap = "round"; ctx.lineWidth = 5;
-  ctx.beginPath(); ctx.moveTo(cx, yy + S * 0.36); ctx.lineTo(cx, yy - S * 0.36); ctx.stroke();
-  // 弓臂横张
-  ctx.strokeStyle = rim; ctx.lineWidth = 4;
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  // 弩身竖托（粗竖 + 木身高光）
+  ctx.strokeStyle = ink; ctx.lineWidth = 5.5;
+  ctx.beginPath(); ctx.moveTo(cx, yy + S * 0.36); ctx.lineTo(cx, yy - S * 0.32); ctx.stroke();
+  ctx.strokeStyle = lo; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(cx, yy + S * 0.3); ctx.lineTo(cx, yy - S * 0.26); ctx.stroke();
+  // 弓臂粗弧
+  ctx.strokeStyle = ink; ctx.lineWidth = 5;
   ctx.beginPath();
-  ctx.moveTo(cx - S * 0.44, yy - S * 0.02);
-  ctx.quadraticCurveTo(cx, yy - S * 0.32, cx + S * 0.44, yy - S * 0.02);
+  ctx.moveTo(cx - S * 0.44, yy + S * 0.02);
+  ctx.quadraticCurveTo(cx, yy - S * 0.34, cx + S * 0.44, yy + S * 0.02);
   ctx.stroke();
   // 弦（蓄力）
   const draw = 0.5 + 0.5 * Math.sin(now / 240);
-  ctx.strokeStyle = "#3a2c1a"; ctx.lineWidth = 1.5;
+  ctx.strokeStyle = "#1a120b"; ctx.lineWidth = 1.4;
   ctx.beginPath();
-  ctx.moveTo(cx - S * 0.42, yy - S * 0.03);
-  ctx.lineTo(cx, yy + S * 0.03 - draw * S * 0.14);
-  ctx.lineTo(cx + S * 0.42, yy - S * 0.03);
+  ctx.moveTo(cx - S * 0.42, yy + 0.5);
+  ctx.lineTo(cx, yy + S * 0.05 - draw * S * 0.14);
+  ctx.lineTo(cx + S * 0.42, yy + 0.5);
   ctx.stroke();
-  // 待发弩箭（朱红，指向上方敌人）
-  ctx.strokeStyle = "#8a2818"; ctx.lineWidth = 2.6;
-  ctx.beginPath(); ctx.moveTo(cx, yy + S * 0.06); ctx.lineTo(cx, yy - S * 0.42); ctx.stroke();
-  ctx.fillStyle = "#8a2818";
-  ctx.beginPath(); ctx.moveTo(cx - 3.5, yy - S * 0.34); ctx.lineTo(cx, yy - S * 0.46); ctx.lineTo(cx + 3.5, yy - S * 0.34); ctx.closePath(); ctx.fill();
-  ctx.lineCap = "butt";
+  // 朱红弩箭上膛
+  ctx.strokeStyle = "#9a2418"; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(cx, yy + S * 0.06); ctx.lineTo(cx, yy - S * 0.44); ctx.stroke();
+  ctx.fillStyle = "#9a2418";
+  ctx.beginPath(); ctx.moveTo(cx - 4, yy - S * 0.36); ctx.lineTo(cx, yy - S * 0.48); ctx.lineTo(cx + 4, yy - S * 0.36); ctx.closePath(); ctx.fill();
+  ctx.lineCap = "butt"; ctx.lineJoin = "miter";
   ctx.restore();
 }
 function drawUnit(u, now) {
@@ -2978,7 +3014,7 @@ function drawBench(now) {
         ctx.imageSmoothingEnabled = true;
       } else {
         ctx.fillStyle = "#5a4008";
-        ctx.font = 'bold 18px "Kaiti SC", "STKaiti", "KaiTi", serif';
+        ctx.font = 'bold 18px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
         ctx.fillText(u.char, px, BENCH_Y0 + BENCH_TILE / 2 + 1);
         ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
@@ -3050,7 +3086,7 @@ function drawPopups(now) {
     ctx.globalAlpha = 1 - el / life;
     ctx.translate(p.x * TILE + TILE / 2, p.y * TILE + 6 - el * 0.03);
     ctx.rotate(p.rot);
-    ctx.font = (p.big ? "bold 21px" : "bold 16px") + ' "Kaiti SC", "STKaiti", "KaiTi", serif';
+    ctx.font = (p.big ? "bold 21px" : "bold 16px") + ' "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
     ctx.fillStyle = "rgba(60,40,8,.4)";
     ctx.fillText(p.text, 1.5, 2);
     ctx.fillStyle = p.color;
@@ -3098,7 +3134,7 @@ function drawHeroCast(now) {
   ctx.fillStyle = "#f8e8c8";
   const n = heroCastAnim.name.length;
   const nfs = n >= 3 ? 15 : 21;
-  ctx.font = `bold ${nfs}px "Kaiti SC", "STKaiti", "KaiTi", serif`;
+  ctx.font = `bold ${nfs}px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif`;
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   heroCastAnim.name.split("").forEach((ch, i) => {
     ctx.fillText(ch, 0, (i - (n - 1) / 2) * (nfs + 1));
@@ -3106,7 +3142,7 @@ function drawHeroCast(now) {
   ctx.restore();
   // 技能名金字
   ctx.textAlign = "left"; ctx.textBaseline = "middle";
-  ctx.font = 'bold 32px "Kaiti SC", "STKaiti", "KaiTi", serif';
+  ctx.font = 'bold 32px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
   ctx.fillStyle = "#ffe9a8";
   ctx.shadowColor = "#f0c060"; ctx.shadowBlur = 18;
   ctx.fillText(heroCastAnim.skillName, 92, by + bh / 2 + 2);
@@ -3171,7 +3207,7 @@ function drawHeroAnim(now) {
     ctx.save();
     ctx.translate(x + off * 34 * (1 - t), cy);
     ctx.rotate(rot * 1.8);
-    ctx.font = `bold ${fs}px "Kaiti SC", "STKaiti", "KaiTi", serif`;
+    ctx.font = `bold ${fs}px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif`;
     ctx.fillStyle = "rgba(255,233,168,.2)";
     ctx.fillText(ch, 0, 0);
     ctx.restore();
@@ -3179,7 +3215,7 @@ function drawHeroAnim(now) {
     ctx.save();
     ctx.translate(x, cy);
     ctx.rotate(rot);
-    ctx.font = `bold ${fs}px "Kaiti SC", "STKaiti", "KaiTi", serif`;
+    ctx.font = `bold ${fs}px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif`;
     ctx.shadowColor = "rgba(240,192,96,.85)"; ctx.shadowBlur = 24;
     ctx.fillStyle = "#ffe9a8";
     ctx.fillText(ch, 0, 0);
@@ -3215,7 +3251,7 @@ function drawHeroAnim(now) {
     ctx.strokeStyle = "#8a6a1c"; ctx.lineWidth = 2.5;
     ctx.stroke();
     ctx.fillStyle = "#241b0e";
-    ctx.font = 'bold 30px "Kaiti SC", "STKaiti", "KaiTi", serif';
+    ctx.font = 'bold 30px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
     ctx.fillText(heroAnim.name + " \u767b\u573a", 0, 2);
     // 红印章
     ctx.translate(pw / 2 - 2, -ph / 2 + 2);
@@ -3223,7 +3259,7 @@ function drawHeroAnim(now) {
     ctx.fillStyle = "#a02818";
     ctx.fillRect(-14, -14, 28, 28);
     ctx.fillStyle = "#f4e0c0";
-    ctx.font = 'bold 15px "Kaiti SC", "STKaiti", "KaiTi", serif';
+    ctx.font = 'bold 15px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
     ctx.fillText("\u5c06", 0, 1);
     ctx.restore();
   }
@@ -3360,7 +3396,7 @@ function drawDragGhost() {
     ctx.imageSmoothingEnabled = true;
   } else {
     ctx.fillStyle = "#241b12";
-    ctx.font = 'bold 32px "Kaiti SC", "STKaiti", "KaiTi", serif';
+    ctx.font = 'bold 32px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillText(bDragU.char || bDragU.name[0], bDragPos.x, bDragPos.y - S / 2 - 12);
   }
