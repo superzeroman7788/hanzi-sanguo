@@ -325,6 +325,35 @@ const KF_HIT = [
   { t: 280, dy: -1.5, rot: -0.035 },
   { t: 370, dy: 0, rot: 0 },
 ];
+// 水墨特效贴图（AI生成单帧，程序管运动）：白底自动抠透明，未提供则程序画兜底
+const fx2 = {};
+["slash", "stab", "burst", "arrow", "hoof"].forEach(name => {
+  fx2[name] = { ready: false };
+  loadKeyedImage(`assets/fx2/${name}.png`).then(c => {
+    if (!c) return;
+    // 白底抠透明（loadKeyedImage 只抠纯黑，这里再抠亮色背景）
+    const g = c.getContext("2d");
+    const d = g.getImageData(0, 0, c.width, c.height), p = d.data;
+    for (let i = 0; i < p.length; i += 4) {
+      const lum = 0.3 * p[i] + 0.59 * p[i + 1] + 0.11 * p[i + 2];
+      if (lum > 232) p[i + 3] = 0;
+      else if (lum > 205) p[i + 3] = Math.min(p[i + 3], Math.round(255 * (232 - lum) / 27));
+    }
+    g.putImageData(d, 0, 0);
+    fx2[name] = { ready: true, img: c };
+  }).catch(() => {});
+});
+function drawFx2(name, x, y, size, rot, alpha) {
+  const e = fx2[name];
+  if (!e || !e.ready) return false;
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  ctx.translate(x, y);
+  ctx.rotate(rot);
+  ctx.drawImage(e.img, -size / 2, -size / 2, size, size);
+  ctx.restore();
+  return true;
+}
 // 受击墨散：字的墨被打散——细小墨点从牌缘飞出 + 笔画短暂发毛
 let inkSpecks = [];
 function spawnInkSpecks(x, y, n) {
@@ -358,11 +387,15 @@ function drawWeaponDoodles(now) {
     const t = (now - d.born) / 330;
     const dist2 = 14 + 30 * t;
     const x = d.x + d.dirX * dist2, y = d.y + d.dirY * dist2;
+    const a2 = t < 0.15 ? t / 0.15 : 1 - (t - 0.15) / 0.85;
+    const rot2 = Math.atan2(d.dirY, d.dirX);
+    // 优先贴图（AI水墨特效），带轻微放大
+    if (drawFx2(d.kind, x, y, 54 * (0.85 + t * 0.5), rot2 + Math.PI / 2, a2)) continue;
     ctx.save();
-    ctx.globalAlpha = t < 0.15 ? t / 0.15 : 1 - (t - 0.15) / 0.85;
+    ctx.globalAlpha = a2;
     ctx.strokeStyle = "#241811"; ctx.lineWidth = 2.6; ctx.lineCap = "round";
     ctx.translate(x, y);
-    ctx.rotate(Math.atan2(d.dirY, d.dirX));
+    ctx.rotate(rot2);
     if (d.kind === "slash") {          // 刀光：一道弯月弧
       ctx.beginPath(); ctx.arc(-4, 0, 15, -1.15, 1.15); ctx.stroke();
       ctx.lineWidth = 1.2;
@@ -426,6 +459,7 @@ function drawInkBursts(now) {
   for (const b of inkBursts) {
     const t = (now - b.born) / 460;
     const R = (b.big ? 15 : 11) * (0.7 + t * 0.5);
+    if (drawFx2("burst", b.x, b.y, (b.big ? 76 : 56) * (0.6 + t * 0.7), b.seed * 0.9, 1 - t * t)) continue;
     ctx.save();
     ctx.globalAlpha = 1 - t * t;
     ctx.fillStyle = "#1c140c";
