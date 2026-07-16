@@ -861,8 +861,10 @@ function unitActRT(u) {
       }
       u.state = "stand"; return "idle";
     }
-    if (mode === "column") {         // 弓：守整条竖列，射最近的
-      const tgt = foes.filter(f => f.col === u.col && f.row < u.row).sort((a, b) => b.row - a.row)[0];
+    if (mode === "column") {         // 弓：守整条竖列，优先点杀旗/弩，其次最近
+      const tgt = foes.filter(f => f.col === u.col && f.row < u.row)
+        .sort((a, b) => (b.banner - a.banner) || (b.ranged - a.ranged) || (b.row - a.row))[0];
+      if (tgt && tgt.banner) counterTag(tgt, "点杀旗兵！", "#b8891c");
       if (tgt) {
         faceTo(u, tgt.col, tgt.row);
         u.state = "attack"; u.animStart = performance.now();
@@ -1122,8 +1124,8 @@ const FIXED_WAVES = {
   ],
   2: [
     { comp: { zu: 3 }, main: [1] },
-    { comp: { ma: 3 }, main: [1, 3] },
-    { comp: { zu: 3, ma: 2 }, main: [3] },
+    { comp: { ma: 4 }, main: [1, 3] },
+    { comp: { zu: 3, ma: 2 }, main: [1] },   // 压回第2波冲过的路：漏了不修墙=城破
   ],
   3: [
     { comp: { dun: 2, zu: 2 }, main: [2] },
