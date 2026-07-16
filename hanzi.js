@@ -325,6 +325,96 @@ const KF_HIT = [
   { t: 280, dy: -1.5, rot: -0.035 },
   { t: 370, dy: 0, rot: 0 },
 ];
+// 受击墨散：字的墨被打散——细小墨点从牌缘飞出 + 笔画短暂发毛
+let inkSpecks = [];
+function spawnInkSpecks(x, y, n) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * 6.283, sp = 22 + Math.random() * 42;
+    inkSpecks.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 26, r: 1 + Math.random() * 2.2, born: performance.now() });
+  }
+  if (inkSpecks.length > 60) inkSpecks.splice(0, inkSpecks.length - 60);
+}
+function drawInkSpecks(now) {
+  inkSpecks = inkSpecks.filter(p => now - p.born < 520);
+  for (const p of inkSpecks) {
+    const t = (now - p.born) / 520;
+    ctx.globalAlpha = (1 - t) * 0.8;
+    ctx.fillStyle = "#241811";
+    ctx.beginPath();
+    ctx.arc(p.x + p.vx * t, p.y + p.vy * t + 46 * t * t, p.r * (1 - t * 0.5), 0, 7);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+// 攻击伴生符号：字旁划过的手绘兵器涂鸦（刀光/枪头/蹄印）
+let weaponDoodles = [];
+function spawnDoodle(kind, x, y, dirX, dirY) {
+  weaponDoodles.push({ kind, x, y, dirX, dirY, born: performance.now() });
+  if (weaponDoodles.length > 14) weaponDoodles.shift();
+}
+function drawWeaponDoodles(now) {
+  weaponDoodles = weaponDoodles.filter(d => now - d.born < 330);
+  for (const d of weaponDoodles) {
+    const t = (now - d.born) / 330;
+    const dist2 = 14 + 30 * t;
+    const x = d.x + d.dirX * dist2, y = d.y + d.dirY * dist2;
+    ctx.save();
+    ctx.globalAlpha = t < 0.15 ? t / 0.15 : 1 - (t - 0.15) / 0.85;
+    ctx.strokeStyle = "#241811"; ctx.lineWidth = 2.6; ctx.lineCap = "round";
+    ctx.translate(x, y);
+    ctx.rotate(Math.atan2(d.dirY, d.dirX));
+    if (d.kind === "slash") {          // 刀光：一道弯月弧
+      ctx.beginPath(); ctx.arc(-4, 0, 15, -1.15, 1.15); ctx.stroke();
+      ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(-7, 0, 15, -0.85, 0.85); ctx.stroke();
+    } else if (d.kind === "stab") {    // 枪头：三角尖+杆
+      ctx.beginPath(); ctx.moveTo(-14, 0); ctx.lineTo(6, 0); ctx.stroke();
+      ctx.fillStyle = "#241811";
+      ctx.beginPath(); ctx.moveTo(4, -4); ctx.lineTo(13, 0); ctx.lineTo(4, 4); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "#9a2418"; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(-8, -3); ctx.lineTo(-12, -7); ctx.moveTo(-8, 3); ctx.lineTo(-12, 7); ctx.stroke();
+    } else if (d.kind === "hoof") {    // 蹄印：两对弧
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(-6, -5, 3.5, 0.6, 3.7); ctx.stroke();
+      ctx.beginPath(); ctx.arc(2, 4, 3.5, 0.6, 3.7); ctx.stroke();
+      ctx.beginPath(); ctx.arc(9, -3, 3.5, 0.6, 3.7); ctx.stroke();
+    }
+    ctx.lineCap = "butt";
+    ctx.restore();
+  }
+}
+// 金币弹出：击杀处弹出小金珠，划弧线飞向顶栏金币
+let coinPops = [];
+function spawnCoinPop(x, y, n) {
+  for (let i = 0; i < n; i++) coinPops.push({ x, y, born: performance.now() + i * 70, phase: 0 });
+  if (coinPops.length > 10) coinPops.splice(0, coinPops.length - 10);
+}
+function drawCoinPops(now) {
+  coinPops = coinPops.filter(c => now - c.born < 760);
+  for (const c of coinPops) {
+    if (now < c.born) continue;
+    const t = (now - c.born) / 760;
+    let x, y, r;
+    if (t < 0.35) {          // 弹出：向上蹦
+      const k = t / 0.35;
+      x = c.x; y = c.y - 26 * Math.sin(k * Math.PI); r = 5;
+    } else {                 // 飞向顶栏金币（右上角）
+      const k = (t - 0.35) / 0.65;
+      const ke = k * k;
+      x = c.x + (cv.width - 40 - c.x) * ke;
+      y = c.y - 26 - (c.y - 14) * ke;
+      r = 5 - 2 * k;
+    }
+    ctx.save();
+    ctx.globalAlpha = t > 0.9 ? (1 - t) / 0.1 : 1;
+    ctx.fillStyle = "#e8c050";
+    ctx.strokeStyle = "#8a6210"; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = "#f8ecc0"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(x - r * 0.3, y - r * 0.3, r * 0.35, 0, 7); ctx.stroke();
+    ctx.restore();
+  }
+}
 // 墨爆：不规则墨渍 + 抓痕飞白
 let inkBursts = [];
 function spawnInkBurst(x, y, big) {
@@ -642,7 +732,10 @@ function dealDamage(att, tgt, mult, opt = {}) {
   dmg = Math.round(dmg);
   tgt.hp -= dmg;
   tgt.flashUntil = performance.now() + 130;
-  if (phase === "fight" && tgt.col != null && Math.random() < 0.55) spawnInkBurst(tgt.x * TILE + TILE / 2 + (Math.random() - 0.5) * 14, tgt.y * TILE + TILE / 2 - 6 + (Math.random() - 0.5) * 10);
+  if (phase === "fight" && tgt.col != null) {
+    spawnInkSpecks(tgt.x * TILE + TILE / 2, tgt.y * TILE + TILE / 2, crit ? 8 : 5);   // 墨被打散
+    if (Math.random() < 0.55) spawnInkBurst(tgt.x * TILE + TILE / 2 + (Math.random() - 0.5) * 14, tgt.y * TILE + TILE / 2 - 6 + (Math.random() - 0.5) * 10);
+  }
   // 受击后仰挤压；我方刀兵=格挡（幅度小回弹硬+盾光+锵声）
   const isBlock = tgt.side === "me" && tgt.cls === "infantry" && !tgt.hero;
   tgt.hitAnim = { born: performance.now(), dir: Math.sign(tgt.row - att.row) || (tgt.side === "me" ? 1 : -1), block: isBlock };
@@ -661,7 +754,7 @@ function dealDamage(att, tgt, mult, opt = {}) {
     // 击杀掉金币（塔防式战场经济）
     if (tgt.side === "foe" && att.side === "me" && phase === "fight") {
       gold += 1;
-      popup(tgt, "+1金", "#8a6a10");
+      spawnCoinPop(tgt.x * TILE + TILE / 2, tgt.y * TILE + TILE / 2, 1);
       refreshStats();
     }
     // 英雄击杀：斩字特写 + 全场顿帧
@@ -916,6 +1009,7 @@ function unitActRT(u) {
         u.state = "attack"; u.animStart = performance.now();
         setTimeout(() => {
           if (tgt.state !== "dead" && u.state !== "dead") {
+            spawnDoodle("slash", u.x * TILE + TILE / 2, u.y * TILE + TILE / 2 - 14, 0, -1);
             dealDamage(u, tgt, 1);
             spawnInkBurst((u.x + tgt.x) / 2 * TILE + TILE / 2, (u.y + tgt.y) / 2 * TILE + TILE / 2);
           }
@@ -931,6 +1025,7 @@ function unitActRT(u) {
         faceTo(u, u.col, u.row - 1);
         u.state = "attack"; u.animStart = performance.now();
         pierceLines.push({ col: u.col, y0: u.row, y1: Math.max(0, u.row - 2.2), born: performance.now() });
+        spawnDoodle("stab", u.x * TILE + TILE / 2, u.y * TILE + TILE / 2 - 16, 0, -1);
         for (const f of hits) { dealDamage(u, f, 1); if (f.shield) counterTag(f, "破盾！", "#b8891c"); }
         gainRage(u, 26);
         return "attack";
@@ -981,6 +1076,7 @@ function unitActRT(u) {
         const stepTo = [[u.col + dc, u.row + dr], [u.col + dc, u.row], [u.col, u.row + dr]]
           .find(([c, r]) => c >= 0 && c < COLS && r >= 3 && r < ROWS && !alive().some(v => v !== u && v.col === c && v.row === r));
         if (stepTo) {
+          spawnDoodle("hoof", u.x * TILE + TILE / 2, u.y * TILE + TILE / 2 + 10, (stepTo[0] - u.col) * -0.6, (stepTo[1] - u.row) * -0.6 || 0.4);
           u.col = stepTo[0]; u.row = stepTo[1];
           faceTo(u, u.col, u.row);
           u.state = "walk"; u.animStart = performance.now();
@@ -3388,7 +3484,7 @@ function render(now) {
     console.error("渲染帧异常(已跳过):", e);
     try { ctx.restore(); } catch (e2) {}
   }
-  try { drawDragGhost(); drawRollLogs(); drawDeflects(); drawPierceLines(); drawInkBursts(performance.now()); } catch (e) {}
+  try { drawDragGhost(); drawRollLogs(); drawDeflects(); drawPierceLines(); drawInkBursts(performance.now()); drawInkSpecks(performance.now()); drawWeaponDoodles(performance.now()); drawCoinPops(performance.now()); } catch (e) {}
   requestAnimationFrame(render);
 }
 // 盾挡箭偏折：小箭弹飞旋转渐隐
