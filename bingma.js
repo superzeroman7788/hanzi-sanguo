@@ -2688,16 +2688,16 @@ function drawBoard() {
   // 宣纸棋格
   for (let c = 0; c < COLS; c++) for (let r = 0; r < ROWS; r++) {
     const even = (c + r) % 2 === 0;
-    ctx.fillStyle = even ? "#e9dcbc" : "#e1d2ad";
+    ctx.fillStyle = even ? "#95a668" : "#8a9b5d";
     ctx.fillRect(c * TILE, r * TILE, TILE, TILE);
-    ctx.fillStyle = "rgba(90,70,40,.16)";
+    ctx.fillStyle = "rgba(50,60,30,.25)";
     ctx.fillRect(c * TILE + TILE - 1, r * TILE, 1, TILE);
     ctx.fillRect(c * TILE, r * TILE + TILE - 1, TILE, 1);
   }
   // 敌区冷灰罩染
   let g = ctx.createLinearGradient(0, 0, 0, DEPLOY_ROWS * TILE);
-  g.addColorStop(0, "rgba(120,105,110,.16)");
-  g.addColorStop(1, "rgba(120,105,110,.04)");
+  g.addColorStop(0, "rgba(60,50,70,.22)");
+  g.addColorStop(1, "rgba(60,50,70,.05)");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, COLS * TILE, DEPLOY_ROWS * TILE);
   drawDecor();
@@ -2863,7 +2863,7 @@ const DECOR = [
 function drawDecor() {
   for (const d of DECOR) {
     if (d.t === "g") {
-      ctx.strokeStyle = "#6f7d4d"; ctx.lineWidth = 1.7; ctx.lineCap = "round";
+      ctx.strokeStyle = "#c8d890"; ctx.lineWidth = 1.7; ctx.lineCap = "round";
       ctx.beginPath();
       ctx.moveTo(d.x + 4, d.y + 14); ctx.quadraticCurveTo(d.x + 4, d.y + 6, d.x + 3, d.y + 2);
       ctx.moveTo(d.x + 9, d.y + 14); ctx.quadraticCurveTo(d.x + 10, d.y + 6, d.x + 13, d.y + 2);
@@ -2871,11 +2871,11 @@ function drawDecor() {
       ctx.stroke();
       ctx.lineCap = "butt";
     } else if (d.t === "s") {
-      ctx.fillStyle = "#c9bda2"; ctx.strokeStyle = "#7a6a4c"; ctx.lineWidth = 1.2;
+      ctx.fillStyle = "#b0a888"; ctx.strokeStyle = "#4a4430"; ctx.lineWidth = 1.2;
       ctx.beginPath(); ctx.ellipse(d.x + 9, d.y + 9, 8, 4.5, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       ctx.beginPath(); ctx.ellipse(d.x + 19, d.y + 11, 5, 3, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     } else {
-      ctx.fillStyle = "rgba(90,80,55,.22)";
+      ctx.fillStyle = "rgba(40,50,25,.28)";
       ctx.beginPath(); ctx.ellipse(d.x, d.y, 5, 3, 0, 0, Math.PI * 2); ctx.fill();
     }
   }
@@ -2939,6 +2939,13 @@ function drawTileSprite(u, px, py, now, sizeBase) {
   }
   const cx2 = px + ox, cy2 = py + oy;
 
+  // 脚下投影：小人立住
+  if (u.state !== "dead") {
+    ctx.fillStyle = "rgba(20,26,12,.30)";
+    ctx.beginPath();
+    ctx.ellipse(cx2, cy2 + SPR * scale * 0.38, 15 * scale, 5.5 * scale, 0, 0, 7);
+    ctx.fill();
+  }
   // 名将金色气场
   if (u.hero && u.state !== "dead") {
     const gy = cy2 + SPR * scale * 0.36;
