@@ -288,6 +288,75 @@ const ghosts = [];       // 英雄残影 {x,y,S,born}
 const inkSlashes = [];   // 墨迹刀光 {x0,y0,x1,y1,born,dur}
 
 // 受击碎纸：从牌上撕落碎片；死亡整牌裂散
+// ---------- 关键帧姿态系统：像动画师K帧一样逐段调 ----------
+// track: [{t, dx, dy, rot, s, sx, sy}...]  t=ms  线性段间插值+段内缓动
+function poseAt(track, el) {
+  if (el <= track[0].t) return track[0];
+  const last = track[track.length - 1];
+  if (el >= last.t) return last;
+  for (let i = 1; i < track.length; i++) {
+    if (el <= track[i].t) {
+      const a = track[i - 1], b = track[i];
+      let k = (el - a.t) / (b.t - a.t);
+      k = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;   // easeInOut
+      const L = (p, q) => (p || 0) + ((q || 0) - (p || 0)) * k;
+      return { dx: L(a.dx, b.dx), dy: L(a.dy, b.dy), rot: L(a.rot, b.rot),
+               s: L(a.s == null ? 1 : a.s, b.s == null ? 1 : b.s),
+               sx: L(a.sx == null ? 1 : a.sx, b.sx == null ? 1 : b.sx),
+               sy: L(a.sy == null ? 1 : a.sy, b.sy == null ? 1 : b.sy) };
+    }
+  }
+  return last;
+}
+// 刀兵攻击三节拍：蓄(后仰) → 劈(猛扑+前倾+拉伸) → 命中顿帧 → 回弹过冲
+const KF_SLASH = [
+  { t: 0,   dx: 0,   rot: 0,     sx: 1,    sy: 1 },
+  { t: 130, dx: -6,  rot: -0.12, sx: 0.93, sy: 1.05 },
+  { t: 195, dx: 16,  rot: 0.17,  sx: 1.16, sy: 0.9 },
+  { t: 285, dx: 15,  rot: 0.15,  sx: 1.1,  sy: 0.94 },
+  { t: 390, dx: -3,  rot: -0.04, sx: 0.97, sy: 1.02 },
+  { t: 520, dx: 0,   rot: 0,     sx: 1,    sy: 1 },
+];
+// 受击：瞬间歪斜+顿住 → 回正过冲
+const KF_HIT = [
+  { t: 0,   dy: 0, rot: 0 },
+  { t: 45,  dy: 6, rot: 0.14 },
+  { t: 120, dy: 5, rot: 0.12 },
+  { t: 280, dy: -1.5, rot: -0.035 },
+  { t: 370, dy: 0, rot: 0 },
+];
+// 墨爆：不规则墨渍 + 抓痕飞白
+let inkBursts = [];
+function spawnInkBurst(x, y, big) {
+  inkBursts.push({ x, y, born: performance.now(), big: !!big, seed: (Math.random() * 7) | 0 });
+  if (inkBursts.length > 12) inkBursts.shift();
+}
+function drawInkBursts(now) {
+  inkBursts = inkBursts.filter(b => now - b.born < 460);
+  for (const b of inkBursts) {
+    const t = (now - b.born) / 460;
+    const R = (b.big ? 15 : 11) * (0.7 + t * 0.5);
+    ctx.save();
+    ctx.globalAlpha = 1 - t * t;
+    ctx.fillStyle = "#1c140c";
+    for (let i = 0; i < 5; i++) {
+      const a = b.seed * 1.3 + i * 1.256, rr = R * (0.55 + ((b.seed + i * 3) % 5) * 0.13);
+      ctx.beginPath();
+      ctx.ellipse(b.x + Math.cos(a) * rr * 0.42, b.y + Math.sin(a) * rr * 0.42, rr * 0.62, rr * 0.5, a, 0, 7);
+      ctx.fill();
+    }
+    ctx.strokeStyle = "#1c140c"; ctx.lineWidth = 2; ctx.lineCap = "round";
+    for (let i = 0; i < 3; i++) {
+      const a = b.seed * 0.9 + i * 2.1 + 0.4, r0 = R * 0.75, r1 = R * (1.5 + t * 0.8);
+      ctx.beginPath();
+      ctx.moveTo(b.x + Math.cos(a) * r0, b.y + Math.sin(a) * r0);
+      ctx.lineTo(b.x + Math.cos(a) * r1, b.y + Math.sin(a) * r1);
+      ctx.stroke();
+    }
+    ctx.lineCap = "butt";
+    ctx.restore();
+  }
+}
 function spawnShreds(u, n) {
   if (shreds.length > 70) shreds.splice(0, n);
   const px = u.x * TILE + TILE / 2, py = u.y * TILE + TILE / 2;
@@ -573,6 +642,7 @@ function dealDamage(att, tgt, mult, opt = {}) {
   dmg = Math.round(dmg);
   tgt.hp -= dmg;
   tgt.flashUntil = performance.now() + 130;
+  if (phase === "fight" && tgt.col != null && Math.random() < 0.55) spawnInkBurst(tgt.x * TILE + TILE / 2 + (Math.random() - 0.5) * 14, tgt.y * TILE + TILE / 2 - 6 + (Math.random() - 0.5) * 10);
   // 受击后仰挤压；我方刀兵=格挡（幅度小回弹硬+盾光+锵声）
   const isBlock = tgt.side === "me" && tgt.cls === "infantry" && !tgt.hero;
   tgt.hitAnim = { born: performance.now(), dir: Math.sign(tgt.row - att.row) || (tgt.side === "me" ? 1 : -1), block: isBlock };
@@ -839,12 +909,17 @@ function unitActRT(u) {
   // ── 我方功能化兵种行为（PvZ式）──
   if (u.side === "me" && !u.hero) {
     const mode = CLASSES[u.cls] && CLASSES[u.cls].mode;
-    if (mode === "front") {          // 刀：只打正前1格（同列上方）
+    if (mode === "front") {          // 刀：只打正前1格；伤害对齐K帧劈砍命中帧(195ms)
       const tgt = foes.find(f => f.col === u.col && f.row === u.row - 1);
       if (tgt) {
         faceTo(u, tgt.col, tgt.row);
         u.state = "attack"; u.animStart = performance.now();
-        dealDamage(u, tgt, 1);
+        setTimeout(() => {
+          if (tgt.state !== "dead" && u.state !== "dead") {
+            dealDamage(u, tgt, 1);
+            spawnInkBurst((u.x + tgt.x) / 2 * TILE + TILE / 2, (u.y + tgt.y) / 2 * TILE + TILE / 2);
+          }
+        }, 190);
         gainRage(u, 26);
         return "attack";
       }
@@ -2674,44 +2749,57 @@ function drawTile(u, px, py, now, sizeBase) {
   let breathe = 0;
   if (u.state === "stand" && phase !== "over") breathe = Math.sin(now / 470 + u.uid * 1.7) * 1.6;
 
-  // 攻击顶牌动画：朝目标方向位移（枪突刺更猛）
-  let ox = 0, oy = 0;
+  // 攻击动画：K帧三节拍（蓄→劈→顿帧→回弹过冲）
+  let ox = 0, oy = 0, poseRot = 0, poseSx = 1, poseSy = 1;
   if (u.state === "attack") {
     const el = now - u.animStart;
-    const k = el < 150 ? el / 150 : el < 300 ? (300 - el) / 150 : 0;
-    const d = (u.cls === "lancer" && !u.hero ? 16 : 9) * k;
-    if (u.dir === "up") oy = -d; else if (u.dir === "down") oy = d;
-    else if (u.dir === "left") ox = -d; else ox = d;
-    if (el > 440) u.state = "stand";
+    const P = poseAt(KF_SLASH, el);
+    const dirX = u.dir === "left" ? -1 : u.dir === "right" ? 1 : 0;
+    const dirY = u.dir === "up" ? -1 : u.dir === "down" ? 1 : 0;
+    ox += P.dx * dirX; oy += P.dx * dirY;
+    poseRot += P.rot * (dirX || dirY || 1) * (u.dir === "up" ? -1 : 1);
+    poseSx *= P.sx; poseSy *= P.sy;
+    if (el > 540) u.state = "stand";
   }
-  // 受击后仰+挤压（刀兵格挡：幅度小、回弹快）
+  // 受击：K帧歪斜顿住+回正过冲（刀兵格挡：幅度减半+盾光）
   let hitK = 0, blockGlow = 0;
   if (u.hitAnim) {
     const hel = now - u.hitAnim.born;
-    const span = u.hitAnim.block ? 220 : 300;
-    if (hel > span) u.hitAnim = null;
+    if (hel > 370) u.hitAnim = null;
     else {
-      hitK = hel < span * 0.3 ? hel / (span * 0.3) : (span - hel) / (span * 0.7);
-      oy += hitK * (u.hitAnim.block ? 3 : 6) * u.hitAnim.dir;
+      const P = poseAt(KF_HIT, hel);
+      const m = u.hitAnim.block ? 0.45 : 1;
+      oy += P.dy * u.hitAnim.dir * m;
+      poseRot += P.rot * u.hitAnim.dir * m * (u.side === "me" ? 1 : -1);
+      hitK = Math.min(1, Math.abs(P.dy) / 6);
       if (u.hitAnim.block) blockGlow = hitK;
     }
   }
-  // 死亡：灰化下沉淡出
+  // 死亡：翻倒淡出（棋子被掀翻）
   let alpha = 1, deadShift = 0, grey = false;
   if (u.state === "dead") {
     const el = now - u.deadAt;
-    alpha = Math.max(0, 1 - el / 1200);
+    alpha = Math.max(0, 1 - el / 1100);
     if (alpha <= 0) return;
-    deadShift = el * 0.02;
     grey = true;
+    const fall = Math.min(1, el / 420);
+    const fe = 1 - (1 - fall) * (1 - fall);   // easeOut 倒下
+    poseRot += (u.side === "me" ? -1.35 : 1.35) * fe;
+    deadShift = 8 * fe + el * 0.008;
+    poseSy *= 1 - 0.22 * fe;
   }
-  const sqW = 1 + hitK * 0.07, sqH = 1 - hitK * 0.07;
+  const sqW = (1 + hitK * 0.07) * poseSx, sqH = (1 - hitK * 0.07) * poseSy;
   const SW = S * sqW, SH = S * sqH;
   const X = px + ox - SW / 2, Y = py + oy - SH / 2 + deadShift + breathe + (S - SH) / 2;
   const CY = py + oy + deadShift + breathe;
 
   ctx.save();
   ctx.globalAlpha = alpha;
+  if (poseRot) {   // 姿态旋转：以牌中心为轴
+    ctx.translate(px + ox, CY);
+    ctx.rotate(poseRot);
+    ctx.translate(-(px + ox), -CY);
+  }
   // 象棋子中心与半径（受击挤压 → 圆子被压扁）
   const cx = px + ox, cy = CY, rx = SW / 2, ry = SH / 2;
   const disc = (ex, ey, erx, ery) => { ctx.beginPath(); ctx.ellipse(ex, ey, erx, ery, 0, 0, Math.PI * 2); };
@@ -3300,7 +3388,7 @@ function render(now) {
     console.error("渲染帧异常(已跳过):", e);
     try { ctx.restore(); } catch (e2) {}
   }
-  try { drawDragGhost(); drawRollLogs(); drawDeflects(); drawPierceLines(); } catch (e) {}
+  try { drawDragGhost(); drawRollLogs(); drawDeflects(); drawPierceLines(); drawInkBursts(performance.now()); } catch (e) {}
   requestAnimationFrame(render);
 }
 // 盾挡箭偏折：小箭弹飞旋转渐隐
