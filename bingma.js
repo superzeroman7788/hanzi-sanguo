@@ -232,6 +232,8 @@ async function loadAssets() {
   for (const [k, it] of Object.entries(ITEMS)) {
     jobs.push(loadKeyedImage(`assets/items/${it.icon}.png`).then(im => itemImgs[k] = im));
   }
+  jobs.push(new FontFace("MaoBi", 'url("assets/fonts/maobi.woff2")')
+    .load().then(f => document.fonts.add(f)).catch(() => {}));   // 毛笔字体，失败回退系统楷体
   await Promise.all(jobs);
 }
 
@@ -2122,7 +2124,7 @@ function drawGrid(now) {
     gtx.stroke();
     // 字
     gtx.fillStyle = cell.type === "name" ? "#4a3020" : "#241b12";
-    gtx.font = `bold ${Math.round(G_CELL * 0.56)}px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif`;
+    gtx.font = `bold ${Math.round(G_CELL * 0.56)}px "MaoBi", "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif`;
     gtx.textAlign = "center"; gtx.textBaseline = "middle";
     inkGlyph(gtx, cell.char, x + G_CELL / 2, y + G_CELL / 2 + 1, cell.type === "name" ? "#4a3020" : "#241b12", r * 7 + c);
     // 兵种字：右下角小数字标价格
@@ -2144,7 +2146,7 @@ function drawGrid(now) {
       gtx.save();
       gtx.globalAlpha = Math.max(0, a);
       const cx = gridCv.width / 2, cy = gridCv.height / 2;
-      gtx.font = 'bold 21px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
+      gtx.font = 'bold 21px "MaoBi", "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
       const w = gtx.measureText(gridToast.text).width + 44;
       gtx.fillStyle = "rgba(138,40,24,.94)";
       roundRectGU(cx - w / 2, cy - 22, w, 44, [8, 6, 9, 7]);
@@ -2711,7 +2713,7 @@ function drawBoard() {
       ctx.fillStyle = pg;
       ctx.fillRect(mc * TILE, 0, TILE, ROWS * TILE * 0.6);
       ctx.fillStyle = "#a02818";
-      ctx.font = 'bold 13px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
+      ctx.font = 'bold 13px "MaoBi", "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
       ctx.textAlign = "center";
       ctx.fillText("⚠ 集结", mc * TILE + TILE / 2, 16);
     }
@@ -2722,11 +2724,11 @@ function drawBoard() {
     ctx.fill();
     ctx.strokeStyle = "#8a6a1c"; ctx.lineWidth = 1.5; ctx.stroke();
     ctx.fillStyle = "#f4c860";
-    ctx.font = 'bold 15px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
+    ctx.font = 'bold 15px "MaoBi", "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
     ctx.fillText(`第${wave}/${waveTotal}波 ${previewComp} · ${secs}秒`, COLS * TILE / 2, 82);
     if (previewTip) {
       ctx.fillStyle = "#e8d8b0";
-      ctx.font = '12px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
+      ctx.font = '12px "MaoBi", "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
       ctx.fillText(previewTip, COLS * TILE / 2, 104);
     }
     ctx.textAlign = "left";
@@ -2810,7 +2812,7 @@ function drawBoard() {
     ctx.setLineDash([]);
     ctx.lineDashOffset = 0;
     ctx.fillStyle = "rgba(140,95,30,.75)";
-    ctx.font = '14px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
+    ctx.font = '14px "MaoBi", "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
     ctx.textAlign = "center";
     "部署区".split("").forEach((ch, i) => ctx.fillText(ch, COLS * TILE - 14, dy + 24 + i * 16));
     ctx.textAlign = "left";
@@ -2846,7 +2848,7 @@ function drawBoard() {
     ctx.strokeRect(bx + 0.75, BENCH_Y0 + 0.75, BENCH_TILE - 1.5, BENCH_TILE - 1.5);
     ctx.lineWidth = 1;
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.font = 'bold 17px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
+    ctx.font = 'bold 17px "MaoBi", "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
     ctx.fillStyle = "#f4e4c4";
     ctx.fillText("卖", bx + BENCH_TILE / 2, BENCH_Y0 + BENCH_TILE / 2 - 5);
     ctx.font = "9px sans-serif";
@@ -3119,7 +3121,7 @@ function drawTileLegacy(u, px, py, now, sizeBase) {
   if (u.hero) {
     const n = u.name.length;
     const fs = n >= 3 ? Math.round(S * 0.3) : Math.round(S * 0.42);
-    ctx.font = `bold ${fs}px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif`;
+    ctx.font = `bold ${fs}px "MaoBi", "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif`;
     u.name.split("").forEach((ch, i) => {
       inkGlyph(ctx, ch, px + ox, CY + (i - (n - 1) / 2) * fs * 1.02, txt, u.uid + i);
     });
@@ -3128,7 +3130,7 @@ function drawTileLegacy(u, px, py, now, sizeBase) {
     const mk = morphActive;
     ctx.save();
     ctx.globalAlpha *= (1 - mk * 0.88);
-    ctx.font = `bold ${Math.round(S * 0.62)}px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif`;
+    ctx.font = `bold ${Math.round(S * 0.62)}px "MaoBi", "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif`;
     inkGlyph(ctx, u.char, px + ox, CY + 1, txt, u.uid);
     ctx.restore();
     if (mk > 0.03) {
@@ -3382,7 +3384,7 @@ function drawBench(now) {
         ctx.imageSmoothingEnabled = true;
       } else {
         ctx.fillStyle = "#5a4008";
-        ctx.font = 'bold 18px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
+        ctx.font = 'bold 18px "MaoBi", "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
         ctx.fillText(u.char, px, BENCH_Y0 + BENCH_TILE / 2 + 1);
         ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
@@ -3454,7 +3456,7 @@ function drawPopups(now) {
     ctx.globalAlpha = 1 - el / life;
     ctx.translate(p.x * TILE + TILE / 2, p.y * TILE + 6 - el * 0.03);
     ctx.rotate(p.rot);
-    ctx.font = (p.big ? "bold 21px" : "bold 16px") + ' "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
+    ctx.font = (p.big ? "bold 21px" : "bold 16px") + ' "MaoBi", "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
     ctx.fillStyle = "rgba(60,40,8,.4)";
     ctx.fillText(p.text, 1.5, 2);
     ctx.fillStyle = p.color;
@@ -3502,7 +3504,7 @@ function drawHeroCast(now) {
   ctx.fillStyle = "#f8e8c8";
   const n = heroCastAnim.name.length;
   const nfs = n >= 3 ? 15 : 21;
-  ctx.font = `bold ${nfs}px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif`;
+  ctx.font = `bold ${nfs}px "MaoBi", "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif`;
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   heroCastAnim.name.split("").forEach((ch, i) => {
     ctx.fillText(ch, 0, (i - (n - 1) / 2) * (nfs + 1));
@@ -3510,7 +3512,7 @@ function drawHeroCast(now) {
   ctx.restore();
   // 技能名金字
   ctx.textAlign = "left"; ctx.textBaseline = "middle";
-  ctx.font = 'bold 32px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
+  ctx.font = 'bold 32px "MaoBi", "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
   ctx.fillStyle = "#ffe9a8";
   ctx.shadowColor = "#f0c060"; ctx.shadowBlur = 18;
   ctx.fillText(heroCastAnim.skillName, 92, by + bh / 2 + 2);
@@ -3575,7 +3577,7 @@ function drawHeroAnim(now) {
     ctx.save();
     ctx.translate(x + off * 34 * (1 - t), cy);
     ctx.rotate(rot * 1.8);
-    ctx.font = `bold ${fs}px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif`;
+    ctx.font = `bold ${fs}px "MaoBi", "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif`;
     ctx.fillStyle = "rgba(255,233,168,.2)";
     ctx.fillText(ch, 0, 0);
     ctx.restore();
@@ -3583,7 +3585,7 @@ function drawHeroAnim(now) {
     ctx.save();
     ctx.translate(x, cy);
     ctx.rotate(rot);
-    ctx.font = `bold ${fs}px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif`;
+    ctx.font = `bold ${fs}px "MaoBi", "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif`;
     ctx.shadowColor = "rgba(240,192,96,.85)"; ctx.shadowBlur = 24;
     ctx.fillStyle = "#ffe9a8";
     ctx.fillText(ch, 0, 0);
@@ -3619,7 +3621,7 @@ function drawHeroAnim(now) {
     ctx.strokeStyle = "#8a6a1c"; ctx.lineWidth = 2.5;
     ctx.stroke();
     ctx.fillStyle = "#241b0e";
-    ctx.font = 'bold 30px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
+    ctx.font = 'bold 30px "MaoBi", "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
     ctx.fillText(heroAnim.name + " \u767b\u573a", 0, 2);
     // 红印章
     ctx.translate(pw / 2 - 2, -ph / 2 + 2);
@@ -3627,7 +3629,7 @@ function drawHeroAnim(now) {
     ctx.fillStyle = "#a02818";
     ctx.fillRect(-14, -14, 28, 28);
     ctx.fillStyle = "#f4e0c0";
-    ctx.font = 'bold 15px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
+    ctx.font = 'bold 15px "MaoBi", "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
     ctx.fillText("\u5c06", 0, 1);
     ctx.restore();
   }
@@ -3764,7 +3766,7 @@ function drawDragGhost() {
     ctx.imageSmoothingEnabled = true;
   } else {
     ctx.fillStyle = "#241b12";
-    ctx.font = 'bold 32px "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
+    ctx.font = 'bold 32px "MaoBi", "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", serif';
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillText(bDragU.char || bDragU.name[0], bDragPos.x, bDragPos.y - S / 2 - 12);
   }

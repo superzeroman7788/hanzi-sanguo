@@ -8,6 +8,7 @@
 <meta name="theme-color" content="#221a10">
 <title>汉字三国 · 兵马版</title>
 <style>
+  @font-face { font-family: "MaoBi"; src: url("assets/fonts/maobi.woff2") format("woff2"); font-display: swap; }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html {
     background:
@@ -25,7 +26,7 @@
     width: 375px; flex: none; transform-origin: top center;
     background: linear-gradient(175deg, #efe3c8, #e6d6b4 60%, #e0cfa8);
     color: #4a3a26;
-    font-family: "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", "Songti SC", serif;
+    font-family: "MaoBi", "Weibei SC", "Baoli SC", "Kaiti SC", "STKaiti", "Songti SC", serif;
     display: flex; flex-direction: column; align-items: center;
     padding: 0 0 max(6px, env(safe-area-inset-bottom));
     box-shadow: 0 0 34px rgba(240,200,120,.14), 0 0 80px rgba(0,0,0,.6);
@@ -156,6 +157,6 @@
     <canvas id="gridCv"></canvas>
   </div>
   </div>
-  <script src="bingma.js?v=bm2"></script>
+  <script src="bingma.js?v=bm3"></script>
 </body>
 </html>
