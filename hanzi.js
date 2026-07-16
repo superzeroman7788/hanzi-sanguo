@@ -2714,17 +2714,20 @@ function drawTile(u, px, py, now, sizeBase) {
   else if (u.hero) { discHi = "#fbf1d2"; discLo = "#ecd89c"; ring = "#c49a30"; border = "#8a6a1c"; txt = "#8a1610"; }
   else if (u.side === "me") { discHi = "#f7edd2"; discLo = "#e4d3aa"; ring = "#b0703c"; border = "#7a3c1e"; txt = "#a81410"; }
   else { discHi = "#8c827a"; discLo = "#544a42"; ring = "#241c16"; border = "#150f0b"; txt = "#f4ece0"; }
-  // 鼓面石感径向渐变
+  // 幻化度：接敌时盘面退为浅底座、兵器形当主角（刀/弓）
+  let morphActive = (!u.hero && (u.cls === "infantry" || u.cls === "archer") && u.col != null && !grey) ? (u.morphK || 0) : 0;
+  ctx.save();
+  ctx.globalAlpha *= (1 - morphActive * 0.72);
   const rg = ctx.createRadialGradient(cx - rx * 0.32, cy - ry * 0.4, rx * 0.15, cx, cy, rx * 1.06);
   rg.addColorStop(0, discHi); rg.addColorStop(1, discLo);
   ctx.fillStyle = rg;
   disc(cx, cy, rx, ry); ctx.fill();
   ctx.shadowBlur = 0;
-  // 外缘 + 象棋子双环内圈
   ctx.lineWidth = u.hero ? 3 : 2.4; ctx.strokeStyle = border;
   disc(cx, cy, rx, ry); ctx.stroke();
   ctx.lineWidth = 1.4; ctx.strokeStyle = ring;
   disc(cx, cy, rx - 5, ry - 5); ctx.stroke();
+  ctx.restore();
   if (blockGlow > 0) {   // 刀兵格挡：顶缘白金弧光
     ctx.strokeStyle = `rgba(255,244,200,${0.85 * blockGlow})`;
     ctx.lineWidth = 3.5;
@@ -2743,8 +2746,18 @@ function drawTile(u, px, py, now, sizeBase) {
       ctx.fillText(ch, px + ox, CY + (i - (n - 1) / 2) * fs * 1.02);
     });
   } else {
+    // 幻化：接敌时字淡出，兵器形升起（刀→盾 弓→弩）
+    const mk = morphActive;
+    ctx.save();
+    ctx.globalAlpha *= (1 - mk * 0.88);
     ctx.font = `bold ${Math.round(S * 0.62)}px "Kaiti SC", "STKaiti", "KaiTi", serif`;
     ctx.fillText(u.char, px + ox, CY + 1);
+    ctx.restore();
+    if (mk > 0.03) {
+      const recoil = u.state === "attack" ? Math.max(0, 1 - (now - u.animStart) / 200) : 0;
+      if (u.cls === "infantry") drawShieldForm(cx, cy, S, discHi, discLo, border, now, mk);
+      else drawCrossbowForm(cx, cy, S, discHi, discLo, border, now, mk, recoil);
+    }
   }
   // 盾兵形态：牌前缘一面小盾（形态即说明）
   if (u.shield && !grey) {
@@ -2852,8 +2865,85 @@ function drawTile(u, px, py, now, sizeBase) {
   }
   ctx.textAlign = "left";
 }
+// 幻化：本列/射程内有敌就变兵器形，敌退收回字
+function unitEngaged(u) {
+  if (u.side !== "me" || u.hero || phase !== "fight") return false;
+  const mode = CLASSES[u.cls] && CLASSES[u.cls].mode;
+  const foes = alive("foe");
+  if (!foes.length) return false;
+  if (mode === "front") return foes.some(f => f.col === u.col && f.row < u.row && u.row - f.row <= 2);
+  if (mode === "pierce" || mode === "column") return foes.some(f => f.col === u.col && f.row < u.row);
+  if (mode === "mist") return foes.some(f => Math.abs(f.row - u.row) <= 6 && Math.abs(f.col - u.col) <= 4);
+  if (mode === "rover") return foes.some(f => f.row >= 3);
+  return false;
+}
+// 刀→纹章大盾 + 顶端戳刀（挡+反击，机制即形态）
+function drawShieldForm(cx, cy, S, hi, lo, rim, now, k) {
+  ctx.save();
+  ctx.globalAlpha *= k;
+  const w = S * 0.74, top = cy - S * 0.5, bot = cy + S * 0.52;
+  // 顶端戳刀（明显上下抽动）
+  const poke = Math.max(0, Math.sin(now / 115)) * 11;
+  ctx.strokeStyle = "#5a4428"; ctx.fillStyle = "#ece4d4"; ctx.lineWidth = 1.4;
+  const kx = cx + w * 0.3, ky = top + 2 - poke;
+  ctx.beginPath(); ctx.moveTo(kx - 3, ky + 15); ctx.lineTo(kx, ky); ctx.lineTo(kx + 3, ky + 15); ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  // 纹章盾 heater 轮廓
+  ctx.beginPath();
+  ctx.moveTo(cx - w / 2, top);
+  ctx.lineTo(cx + w / 2, top);
+  ctx.lineTo(cx + w / 2, cy + S * 0.06);
+  ctx.quadraticCurveTo(cx + w * 0.42, bot, cx, bot);
+  ctx.quadraticCurveTo(cx - w * 0.42, bot, cx - w / 2, cy + S * 0.06);
+  ctx.closePath();
+  const g = ctx.createLinearGradient(cx - w / 2, top, cx + w / 2, bot);
+  g.addColorStop(0, hi); g.addColorStop(0.5, lo); g.addColorStop(1, hi);
+  ctx.fillStyle = g; ctx.fill();
+  ctx.lineWidth = 3; ctx.strokeStyle = rim; ctx.stroke();
+  // 十字纹章
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(cx, top + 6); ctx.lineTo(cx, bot - 7);
+  ctx.moveTo(cx - w * 0.3, cy - 3); ctx.lineTo(cx + w * 0.3, cy - 3);
+  ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx, cy - 3, 4.5, 0, Math.PI * 2); ctx.fillStyle = rim; ctx.fill();
+  ctx.restore();
+}
+// 弓→大弩，蓄力放箭循环，放箭后坐（待发弩箭指向敌人）
+function drawCrossbowForm(cx, cy, S, hi, lo, rim, now, k, recoil) {
+  ctx.save();
+  ctx.globalAlpha *= k;
+  const yy = cy + recoil * 5;
+  // 弩身竖托
+  ctx.strokeStyle = "#6a4a2c"; ctx.lineCap = "round"; ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.moveTo(cx, yy + S * 0.36); ctx.lineTo(cx, yy - S * 0.36); ctx.stroke();
+  // 弓臂横张
+  ctx.strokeStyle = rim; ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(cx - S * 0.44, yy - S * 0.02);
+  ctx.quadraticCurveTo(cx, yy - S * 0.32, cx + S * 0.44, yy - S * 0.02);
+  ctx.stroke();
+  // 弦（蓄力）
+  const draw = 0.5 + 0.5 * Math.sin(now / 240);
+  ctx.strokeStyle = "#3a2c1a"; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(cx - S * 0.42, yy - S * 0.03);
+  ctx.lineTo(cx, yy + S * 0.03 - draw * S * 0.14);
+  ctx.lineTo(cx + S * 0.42, yy - S * 0.03);
+  ctx.stroke();
+  // 待发弩箭（朱红，指向上方敌人）
+  ctx.strokeStyle = "#8a2818"; ctx.lineWidth = 2.6;
+  ctx.beginPath(); ctx.moveTo(cx, yy + S * 0.06); ctx.lineTo(cx, yy - S * 0.42); ctx.stroke();
+  ctx.fillStyle = "#8a2818";
+  ctx.beginPath(); ctx.moveTo(cx - 3.5, yy - S * 0.34); ctx.lineTo(cx, yy - S * 0.46); ctx.lineTo(cx + 3.5, yy - S * 0.34); ctx.closePath(); ctx.fill();
+  ctx.lineCap = "butt";
+  ctx.restore();
+}
 function drawUnit(u, now) {
   u.x += (u.col - u.x) * 0.2; u.y += (u.row - u.y) * 0.2;
+  // 幻化插值（接敌→兵器形 ~250ms）
+  const eng = unitEngaged(u) ? 1 : 0;
+  u.morphK = (u.morphK || 0) + (eng - (u.morphK || 0)) * 0.16;
   // 英雄疾行：纸质残影
   if (u.hero && u.state !== "dead" &&
       (Math.abs(u.x - u.col) > 0.12 || Math.abs(u.y - u.row) > 0.12) &&
