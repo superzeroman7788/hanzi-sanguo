@@ -261,6 +261,79 @@ function thock(freq = 160, dur = 0.07, vol = 0.25) {
   o.start(); o.stop(actx.currentTime + dur);
 }
 
+// ---------- 活字军令音效族：全程序合成，零素材、风格统一（规范见《美术规格书.md》§7）----------
+// 音色宪法：材质=竹木+铁+纸；命中=低频身体+噪声质感；克制=重音+全场顿帧
+let sfxBus = null, noiseBuf = null;
+function ac() {
+  actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+  if (actx.state === "suspended") actx.resume();
+  if (!sfxBus) {
+    const comp = actx.createDynamicsCompressor();
+    comp.threshold.value = -16; comp.knee.value = 10; comp.ratio.value = 5;
+    comp.connect(actx.destination);
+    sfxBus = actx.createGain(); sfxBus.gain.value = 0.9;
+    sfxBus.connect(comp);
+    noiseBuf = actx.createBuffer(1, Math.floor(actx.sampleRate * 0.4), actx.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  }
+  return actx;
+}
+// 基元：单振荡器扫频
+function tone(type, f0, f1, at, dur, vol) {
+  const c = ac(), t = c.currentTime + at;
+  const o = c.createOscillator(), g = c.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(Math.max(1, f0), t);
+  if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t + dur);
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g).connect(sfxBus);
+  o.start(t); o.stop(t + dur + 0.03);
+}
+// 基元：带通噪声扫频 = 切割/破空/碎裂/气雾
+function noiz(f0, f1, q, at, dur, vol) {
+  const c = ac(), t = c.currentTime + at;
+  const s = c.createBufferSource(), bp = c.createBiquadFilter(), g = c.createGain();
+  s.buffer = noiseBuf; s.loop = true;
+  bp.type = "bandpass"; bp.Q.value = q;
+  bp.frequency.setValueAtTime(Math.max(20, f0), t);
+  if (f1 !== f0) bp.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  s.connect(bp).connect(g).connect(sfxBus);
+  s.start(t); s.stop(t + dur + 0.03);
+}
+const SND = {
+  slash()  { if (!soundOn) return; noiz(2600, 500, 1.1, 0, 0.1, 0.55); tone("triangle", 170, 110, 0.02, 0.09, 0.3); },   // 刀：切割噪声下扫+低音身体
+  stab()   { if (!soundOn) return; noiz(3400, 1600, 3.5, 0, 0.05, 0.4); tone("sine", 880, 220, 0.005, 0.07, 0.3); },     // 枪：短锐穿刺
+  bow()    { if (!soundOn) return; tone("triangle", 640, 460, 0, 0.05, 0.32); noiz(2600, 4600, 2.2, 0.03, 0.13, 0.13); },// 弓：弦响"铮"+破空
+  orb()    { if (!soundOn) return; tone("sine", 520, 780, 0, 0.14, 0.2); tone("sine", 1040, 1560, 0, 0.14, 0.08); },     // 光球：双八度上滑
+  hoof()   { if (!soundOn) return; tone("sine", 100, 55, 0, 0.05, 0.32); noiz(1200, 400, 1, 0, 0.03, 0.15); tone("sine", 85, 50, 0.1, 0.05, 0.26); },   // 骑：哒-哒双蹄
+  mist()   { if (!soundOn) return; noiz(420, 950, 0.6, 0, 0.5, 0.18); tone("sine", 1240, 1240, 0.08, 0.28, 0.06); },     // 医：气雾+轻铃
+  clang()  { if (!soundOn) return; tone("square", 760, 720, 0, 0.045, 0.13); tone("triangle", 1880, 1660, 0, 0.1, 0.15); noiz(4600, 3200, 6, 0, 0.05, 0.12); },   // 格挡金铁锵
+  deflect(){ if (!soundOn) return; tone("triangle", 1400, 2200, 0, 0.05, 0.13); },                                        // 盾弹箭
+  hit(heavy) { if (!soundOn) return;   // 通用命中：轻=脆，重=沉长
+    tone("triangle", heavy ? 115 : 150, heavy ? 65 : 105, 0, heavy ? 0.11 : 0.07, heavy ? 0.36 : 0.22);
+    noiz(1500, 550, 1, 0, heavy ? 0.07 : 0.045, heavy ? 0.3 : 0.15); },
+  counter(vol = 1) { if (!soundOn) return;   // 克制命中专属重音
+    tone("sine", 62, 38, 0, 0.22, 0.5 * vol);
+    noiz(950, 260, 1, 0, 0.13, 0.42 * vol);
+    tone("triangle", 140, 78, 0.02, 0.12, 0.3 * vol); },
+  kill()   { if (!soundOn) return;   // 兵符碎裂：撕纸+木牌落地
+    noiz(5200, 900, 0.8, 0, 0.16, 0.4);
+    noiz(2400, 700, 1.5, 0.05, 0.1, 0.25);
+    tone("triangle", 95, 55, 0.04, 0.13, 0.3); },
+  wall(mul = 1) { if (!soundOn) return;   // 城墙低频震击；城破 mul 加倍
+    tone("sine", 52, 30, 0, 0.3 * mul, 0.55);
+    noiz(700, 140, 0.8, 0, 0.22 * mul, 0.45);
+    tone("triangle", 110, 60, 0.03, 0.16, 0.3); },
+  coin()   { if (!soundOn) return; tone("sine", 1320, 1320, 0, 0.05, 0.12); tone("sine", 1760, 1760, 0.06, 0.09, 0.1); },
+};
+// 全场顿帧（Codex 打击感标准）：轻命中靠 K 帧内置顿帧；暴击 55ms／克制 85ms／英雄斩杀 120ms
+let hitstopUntil = 0;
+function hitstop(ms) { hitstopUntil = Math.max(hitstopUntil, performance.now() + ms); }
+
 // ---------- 对局状态 ----------
 let phase = "ready";   // ready(待出征) | fight(实时战斗+买将布阵) | over(结算)
 let round = 1, playerHp = 100, gold = 20;   // playerHp 已废弃，城墙制见 walls
@@ -757,7 +830,7 @@ function dealDamage(att, tgt, mult, opt = {}) {
       x: tgt.x * TILE + TILE / 2, y: tgt.y * TILE + TILE / 2 - 8,
       ang: -Math.PI / 2 + (Math.random() - 0.5) * 2.2, born: performance.now() + i * 40,
     });
-    thock(520, 0.04, 0.18);
+    SND.deflect();
   }
   if (att.side === "foe" && att.banner !== true && alive("foe").some(b => b.banner && b !== att && b.col === att.col)) dmg *= 1.2;   // 旗令：同路敌军增伤
   dmg *= (0.9 + Math.random() * 0.2);
@@ -773,28 +846,29 @@ function dealDamage(att, tgt, mult, opt = {}) {
   // 受击后仰挤压；我方刀兵=格挡（幅度小回弹硬+盾光+锵声）
   const isBlock = tgt.side === "me" && tgt.cls === "infantry" && !tgt.hero;
   tgt.hitAnim = { born: performance.now(), dir: Math.sign(tgt.row - att.row) || (tgt.side === "me" ? 1 : -1), block: isBlock };
-  if (isBlock) { thock(760, 0.045, 0.22); counterTag(tgt, "格挡！", "#8a7a40"); }
+  if (isBlock) { SND.clang(); counterTag(tgt, "格挡！", "#8a7a40"); }
   if (phase === "fight") spawnShreds(tgt, 2);   // 受击碎纸
   gainRage(tgt, 16);
   const isHeroHit = !!att.hero;
   const label = (crit ? "暴击 " : "-") + dmg;
   popup(tgt, label, (crit || isHeroHit) ? "#b8891c" : "#a04030", crit || isHeroHit);
-  if (crit) doShake(3);
-  thock(crit ? 110 : 160);
+  if (crit) { doShake(3); hitstop(55); }   // 重命中：全场 55ms 顿帧
+  SND.hit(crit || isHeroHit);
   if (tgt.hp <= 0) {
     tgt.hp = 0; tgt.state = "dead"; tgt.deadAt = performance.now();
-    thock(70, 0.18, 0.3);
+    SND.kill();   // 兵符碎裂
     spawnShreds(tgt, 7);   // 死亡：整牌裂成碎片散落
     // 击杀掉金币（塔防式战场经济）
     if (tgt.side === "foe" && att.side === "me" && phase === "fight") {
       gold += 1;
       spawnCoinPop(tgt.x * TILE + TILE / 2, tgt.y * TILE + TILE / 2, 1);
+      SND.coin();
       refreshStats();
     }
     // 英雄击杀：斩字特写 + 全场顿帧
     if (isHeroHit) {
       popups.push({ x: tgt.col, y: tgt.row, text: "斩！", color: "#8a2818", born: performance.now(), big: true });
-      nextActAt = Math.max(nextActAt, performance.now() + 380);
+      hitstop(120);   // 英雄斩杀：全场顿帧（原全局 nextActAt 早已废弃，之前是空操作）
       doShake(6);
     }
   }
@@ -814,7 +888,7 @@ function shootArrow(att, tgt, mult) {
     born: now, dur: 90 * dist(att, tgt) + 60, done: false,
     onHit: () => dealDamage(att, tgt, mult, { ranged: true }),
   });
-  thock(320, 0.05, 0.15);
+  SND.bow();
 }
 // 英雄弹道：刀气 / 金箭 / 光球
 function shootHero(att, tgt, mult, type) {
@@ -823,21 +897,24 @@ function shootHero(att, tgt, mult, type) {
     born: performance.now(), dur: 75 * dist(att, tgt) + 60, done: false,
     onHit: () => dealDamage(att, tgt, mult, { ranged: true }),
   });
-  thock(type === "orb" ? 300 : 230, 0.09, 0.25);
+  if (type === "orb") SND.orb(); else SND.bow();
 }
 // 英雄平A：每一下都有戏
 function heroBasic(u, tgt) {
   switch (u.cls) {
     case "infantry":                       // 墨迹刀光劈斩
+      SND.slash();
       spawnInkSlash(u, tgt);
       dealDamage(u, tgt, 1.15);
       break;
     case "lancer":                         // 长枪突刺：刀光+震屏
+      SND.stab();
       spawnInkSlash(u, tgt);
       dealDamage(u, tgt, 1.15);
       doShake(3);
       break;
     case "cavalry":                        // 铁蹄冲击：刀光+小震
+      SND.hoof();
       spawnInkSlash(u, tgt);
       dealDamage(u, tgt, 1.1);
       doShake(2.5);
@@ -1043,6 +1120,7 @@ function unitActRT(u) {
         u.state = "attack"; u.animStart = performance.now();
         setTimeout(() => {
           if (tgt.state !== "dead" && u.state !== "dead") {
+            SND.slash();
             spawnDoodle("slash", u.x * TILE + TILE / 2, u.y * TILE + TILE / 2 - 14, 0, -1);
             dealDamage(u, tgt, 1);
             spawnInkBurst((u.x + tgt.x) / 2 * TILE + TILE / 2, (u.y + tgt.y) / 2 * TILE + TILE / 2);
@@ -1059,8 +1137,11 @@ function unitActRT(u) {
         faceTo(u, u.col, u.row - 1);
         u.state = "attack"; u.animStart = performance.now();
         pierceLines.push({ col: u.col, y0: u.row, y1: Math.max(0, u.row - 2.2), born: performance.now() });
+        SND.stab();
         spawnDoodle("stab", u.x * TILE + TILE / 2, u.y * TILE + TILE / 2 - 16, 0, -1);
-        for (const f of hits) { dealDamage(u, f, 1); if (f.shield) counterTag(f, "破盾！", "#b8891c"); }
+        let brokeShield = false;
+        for (const f of hits) { dealDamage(u, f, 1); if (f.shield) { brokeShield = true; counterTag(f, "破盾！", "#b8891c"); } }
+        if (brokeShield) { SND.counter(); hitstop(85); }   // 克制命中：85ms 全场顿帧
         gainRage(u, 26);
         return "attack";
       }
@@ -1089,7 +1170,7 @@ function unitActRT(u) {
         faceTo(u, best.col, best.row);
         u.state = "attack"; u.animStart = performance.now();
         mists.push({ col: best.col, row: best.row, born: performance.now(), until: performance.now() + 3200, side: "me", pow: u.atk });
-        playSfx("Se_m_25", 0.3);
+        SND.mist();
         gainRage(u, 20);
         return "skill";
       }
@@ -1102,7 +1183,7 @@ function unitActRT(u) {
           faceTo(u, tgt.col, tgt.row);
           u.state = "attack"; u.animStart = performance.now();
           dealDamage(u, tgt, 1);
-          if (tgt.ranged) counterTag(tgt, "拦截！", "#4a7a5a");
+          if (tgt.ranged) { counterTag(tgt, "拦截！", "#4a7a5a"); SND.counter(); hitstop(85); }   // 骑截远程：克制顿帧
           gainRage(u, 26);
           return "attack";
         }
@@ -1111,6 +1192,7 @@ function unitActRT(u) {
           .find(([c, r]) => c >= 0 && c < COLS && r >= 3 && r < ROWS && !alive().some(v => v !== u && v.col === c && v.row === r));
         if (stepTo) {
           spawnDoodle("hoof", u.x * TILE + TILE / 2, u.y * TILE + TILE / 2 + 10, (stepTo[0] - u.col) * -0.6, (stepTo[1] - u.row) * -0.6 || 0.4);
+          SND.hoof();
           u.col = stepTo[0]; u.row = stepTo[1];
           faceTo(u, u.col, u.row);
           u.state = "walk"; u.animStart = performance.now();
@@ -1203,6 +1285,7 @@ function checkBattleEnd() {
 }
 function runBattleStep(now) {
   if (phase !== "fight") return;
+  if (now < hitstopUntil) return;   // 全场顿帧：克制/暴击/斩杀的世界停拍
   // 刷怪滴灌
   if (spawnQueue.length) {
     if (now >= nextSpawnAt) {
@@ -1487,7 +1570,7 @@ function breach(u) {
     popups.push({ x: col, y: ROWS - 1, text: "城 破 ！", color: "#8a1810", born: performance.now(), big: true });
     doShake(14);
   }
-  thock(60, 0.2, 0.35);
+  SND.wall(walls[col] === 0 ? 1.6 : 1);   // 城破加倍低频
   refreshStats();
 }
 function fixWall(col) {
