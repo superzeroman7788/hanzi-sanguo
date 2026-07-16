@@ -2701,47 +2701,37 @@ function drawTile(u, px, py, now, sizeBase) {
 
   ctx.save();
   ctx.globalAlpha = alpha;
-  // 硬阴影（手作感）
-  if (!grey) {
-    ctx.fillStyle = "rgba(58,47,36,.24)";
-    roundRectU(X + 2, Y + 3, SW, SH, rs);
-    ctx.fill();
-  }
-  // 英雄常驻金晕（呼吸）
-  if (u.hero && !grey) {
-    ctx.shadowColor = "#d4a434";
-    ctx.shadowBlur = 12 + 5 * Math.sin(now / 280);
-  }
-  // 牌底
-  let g1, g2, border, txt;
-  if (u.hero) { g1 = "#f8ecc8"; g2 = "#eeddae"; border = "#8a6a1c"; txt = "#241b0e"; }
-  else if (u.kind === "name") { g1 = "#faf3e4"; g2 = "#f0e6cc"; border = "#8a7050"; txt = "#4a3020"; }
-  else if (u.side === "me") { g1 = "#f7efdd"; g2 = "#eee1c2"; border = "#3a2f24"; txt = "#241b12"; }
-  else if (u.side === "foe") { g1 = "#c9998a"; g2 = "#b47f70"; border = "#4a140c"; txt = "#3f0e06"; }
-  else { g1 = "#e6d9cd"; g2 = "#dbcabc"; border = "#6a4038"; txt = "#3a2420"; }
-  if (grey) { g1 = g2 = "#9a9186"; border = "#6a6258"; txt = "#4a453c"; }
-  const grad = ctx.createLinearGradient(X, Y, X + S, Y + S);
-  grad.addColorStop(0, g1); grad.addColorStop(1, g2);
-  ctx.fillStyle = grad;
-  roundRectU(X, Y, SW, SH, rs);
-  ctx.fill();
+  // 象棋子中心与半径（受击挤压 → 圆子被压扁）
+  const cx = px + ox, cy = CY, rx = SW / 2, ry = SH / 2;
+  const disc = (ex, ey, erx, ery) => { ctx.beginPath(); ctx.ellipse(ex, ey, erx, ery, 0, 0, Math.PI * 2); };
+  // 落盘硬阴影
+  if (!grey) { ctx.fillStyle = "rgba(40,30,20,.28)"; disc(cx + 2, cy + 3, rx, ry); ctx.fill(); }
+  // 名将常驻金晕
+  if (u.hero && !grey) { ctx.shadowColor = "#d4a434"; ctx.shadowBlur = 12 + 5 * Math.sin(now / 280); }
+  // 棋子配色：我方=象牙朱红(红方) 敌方=玄铁骨白(墨方) 名将=玉金
+  let discHi, discLo, ring, border, txt;
+  if (grey) { discHi = "#b4aca0"; discLo = "#948c80"; ring = "#7a7268"; border = "#655d54"; txt = "#4a453c"; }
+  else if (u.hero) { discHi = "#fbf1d2"; discLo = "#ecd89c"; ring = "#c49a30"; border = "#8a6a1c"; txt = "#8a1610"; }
+  else if (u.side === "me") { discHi = "#f7edd2"; discLo = "#e4d3aa"; ring = "#b0703c"; border = "#7a3c1e"; txt = "#a81410"; }
+  else { discHi = "#8c827a"; discLo = "#544a42"; ring = "#241c16"; border = "#150f0b"; txt = "#f4ece0"; }
+  // 鼓面石感径向渐变
+  const rg = ctx.createRadialGradient(cx - rx * 0.32, cy - ry * 0.4, rx * 0.15, cx, cy, rx * 1.06);
+  rg.addColorStop(0, discHi); rg.addColorStop(1, discLo);
+  ctx.fillStyle = rg;
+  disc(cx, cy, rx, ry); ctx.fill();
   ctx.shadowBlur = 0;
-  ctx.lineWidth = u.hero ? 2.5 : 2;
-  ctx.strokeStyle = border;
-  ctx.stroke();
+  // 外缘 + 象棋子双环内圈
+  ctx.lineWidth = u.hero ? 3 : 2.4; ctx.strokeStyle = border;
+  disc(cx, cy, rx, ry); ctx.stroke();
+  ctx.lineWidth = 1.4; ctx.strokeStyle = ring;
+  disc(cx, cy, rx - 5, ry - 5); ctx.stroke();
   if (blockGlow > 0) {   // 刀兵格挡：顶缘白金弧光
     ctx.strokeStyle = `rgba(255,244,200,${0.85 * blockGlow})`;
     ctx.lineWidth = 3.5;
-    ctx.beginPath();
-    ctx.arc(px + ox, CY, S * 0.62, -Math.PI * 0.82, -Math.PI * 0.18);
-    ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, rx + 2, -Math.PI * 0.82, -Math.PI * 0.18); ctx.stroke();
     ctx.lineWidth = 1;
   }
-  if (whiten) {
-    ctx.fillStyle = "rgba(255,255,255,.65)";
-    roundRectU(X, Y, SW, SH, rs);
-    ctx.fill();
-  }
+  if (whiten) { ctx.fillStyle = "rgba(255,255,255,.6)"; disc(cx, cy, rx, ry); ctx.fill(); }
   // 字
   ctx.fillStyle = txt;
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -2786,7 +2776,7 @@ function drawTile(u, px, py, now, sizeBase) {
   // 敌军"曹"军旗角标
   if (u.side === "foe" && !u.hero && !grey) {
     ctx.save();
-    ctx.translate(X + S - 8, Y + 8);
+    ctx.translate(cx + rx * 0.62, cy - ry * 0.62);
     ctx.rotate(-0.1);
     ctx.fillStyle = "#2a2018";
     ctx.fillRect(-6.5, -6.5, 13, 13);
@@ -2802,7 +2792,7 @@ function drawTile(u, px, py, now, sizeBase) {
   if ((u.kind === "name" || u.hero) && !grey) {
     const cc = CLASS_CHARS.find(v => v.cls === u.cls);
     ctx.save();
-    ctx.translate(X + S - 7, Y + 8);
+    ctx.translate(cx + rx * 0.62, cy - ry * 0.62);
     ctx.rotate(0.12);
     ctx.fillStyle = "#a02818";
     ctx.fillRect(-6.5, -6.5, 13, 13);
@@ -2818,26 +2808,22 @@ function drawTile(u, px, py, now, sizeBase) {
   // 选中框 / 可合体提示
   if (selected === u) {
     ctx.strokeStyle = "#b8891c"; ctx.lineWidth = 3;
-    roundRectU(X - 3, Y - 3, S + 6, S + 6, [10, 8, 11, 9]);
-    ctx.stroke();
+    disc(cx, cy, rx + 4, ry + 4); ctx.stroke();
   } else if (phase === "shop" && selected && selected.kind === "name" && comboOf(selected, u)) {
     ctx.strokeStyle = "rgba(200,80,40," + (0.6 + 0.4 * Math.sin(now / 130)) + ")";
     ctx.lineWidth = 3;
-    roundRectU(X - 3, Y - 3, S + 6, S + 6, [10, 8, 11, 9]);
-    ctx.stroke();
+    disc(cx, cy, rx + 4, ry + 4); ctx.stroke();
   }
   // 行动者白圈
   if (phase === "fight" && u.actingUntil && now < u.actingUntil) {
     ctx.strokeStyle = "rgba(255,252,240,.85)"; ctx.lineWidth = 2;
-    roundRectU(X - 2, Y - 2, S + 4, S + 4, [9, 7, 10, 8]);
-    ctx.stroke();
+    disc(cx, cy, rx + 3, ry + 3); ctx.stroke();
   }
   // 怒气满金圈
   if (u.rage >= RAGE_MAX && phase === "fight" && u.kind !== "name") {
     ctx.strokeStyle = "rgba(184,137,28," + (0.55 + 0.4 * Math.sin(now / 120)) + ")";
     ctx.lineWidth = 2.5;
-    roundRectU(X - 2, Y - 2, S + 4, S + 4, [9, 7, 10, 8]);
-    ctx.stroke();
+    disc(cx, cy, rx + 3, ry + 3); ctx.stroke();
   }
 
   // 血条（牌顶）：黑底 + 敌红/我蓝渐变 + 金怒气线
