@@ -60,13 +60,6 @@
       { label: "大小", unit: "px", min: 60, max: 200, step: 4,
         get: () => FX_TRACKS.stab.size, set: v => FX_TRACKS.stab.size = v },
     ] },
-    { g: "墨爆 burst（每次命中）", items: [
-      { label: "时长", unit: "ms", min: 300, max: 1800, step: 50,
-        get: () => FX_TRACKS.burst.dur, set: v => FX_TRACKS.burst.dur = v },
-      { label: "大小", unit: "px", min: 40, max: 170, step: 4,
-        get: () => FX_TRACKS.burst.sizeSmall,
-        set: v => { FX_TRACKS.burst.sizeSmall = v; FX_TRACKS.burst.sizeBig = Math.round(v * 1.3); } },
-    ] },
     { g: "节奏", items: [
       { label: "攻击间隔", unit: "ms", min: 400, max: 2400, step: 50,
         get: () => RT_DELAY.attack, set: v => RT_DELAY.attack = v },
@@ -77,7 +70,6 @@
     return JSON.stringify({
       slash: { dur: FX_TRACKS.slash.dur, size: FX_TRACKS.slash.size },
       stab: { dur: FX_TRACKS.stab.dur, size: FX_TRACKS.stab.size },
-      burst: { dur: FX_TRACKS.burst.dur, sizeSmall: FX_TRACKS.burst.sizeSmall, sizeBig: FX_TRACKS.burst.sizeBig },
       hoof: { dur: FX_TRACKS.hoof.dur, size: FX_TRACKS.hoof.size },
       attackDelay: RT_DELAY.attack,
     }, null, 2);

@@ -440,7 +440,7 @@ function drawFx2(name, x, y, size, rot, alpha) {
 }
 // 特效运动曲线：animations/07-11 预览页定版的 CSS 关键帧移植（段间线性+整体缓出）
 const FX_TRACKS = {
-  slash: { dur: 1150, size: 112, rotMode: "perp", frames: [
+  slash: { dur: 900, size: 88, rotMode: "perp", frames: [   // rt46 用户调校场定版
     { p: 0.00, o: 0,    x: -28, sx: 0.12,  sy: 0.72 },
     { p: 0.07, o: 0,    x: -28, sx: 0.12,  sy: 0.72 },
     { p: 0.18, o: 0.30, x: -18, sx: 0.38,  sy: 0.82 },
@@ -450,7 +450,7 @@ const FX_TRACKS = {
     { p: 0.88, o: 0,    x: 28,  sx: 1.075, sy: 0.94 },
     { p: 1.00, o: 0,    x: 28,  sx: 1.075, sy: 0.94 },
   ] },
-  stab: { dur: 1000, size: 118, rotMode: "along", frames: [
+  stab: { dur: 550, size: 104, rotMode: "along", frames: [   // rt46 用户调校场定版
     { p: 0.00, o: 0,    x: -42, sx: 0.08,  sy: 0.62 },
     { p: 0.08, o: 0,    x: -42, sx: 0.08,  sy: 0.62 },
     { p: 0.24, o: 0.46, x: -20, sx: 0.42,  sy: 0.78 },
@@ -621,10 +621,9 @@ function spawnInkBurst(x, y, big) {
   if (inkBursts.length > 18) inkBursts.shift();
 }
 function drawInkBursts(now) {
-  const burstReady = fx2.burst && fx2.burst.ready;
-  inkBursts = inkBursts.filter(b => now - b.born < (burstReady ? FX_TRACKS.burst.dur : 460));
+  // rt46 用户裁决：burst.png 墨爆贴图下线（显示效果不佳），命中回归程序小墨渍
+  inkBursts = inkBursts.filter(b => now - b.born < 460);
   for (const b of inkBursts) {
-    if (burstReady && drawFx2Kf("burst", b.x, b.y, b.big ? FX_TRACKS.burst.sizeBig : FX_TRACKS.burst.sizeSmall, b.seed * 0.9, (now - b.born) / FX_TRACKS.burst.dur)) continue;
     const t = Math.min(1, (now - b.born) / 460);
     const R = (b.big ? 15 : 11) * (0.7 + t * 0.5);
     ctx.save();
@@ -978,7 +977,7 @@ function knockback(att, tgt) {
 function shootArrow(att, tgt, mult) {
   const now = performance.now();
   projectiles.push({
-    x0: att.col, y0: att.row, x1: tgt.col, y1: tgt.row,
+    x0: att.col, y0: att.row, x1: tgt.col, y1: tgt.row, side: att.side,
     born: now, dur: 90 * dist(att, tgt) + 60, done: false,
     onHit: () => dealDamage(att, tgt, mult, { ranged: true }),
   });
@@ -1348,7 +1347,7 @@ function unitActRT(u) {
   return "idle";
 }
 // 各动作的冷却间隔(ms)
-const RT_DELAY = { heroskill: 1500, skill: 1400, attack: 1050, heal: 1250, move: 1350, stun: 900, idle: 420 };
+const RT_DELAY = { heroskill: 1500, skill: 1400, attack: 1150, heal: 1250, move: 1350, stun: 900, idle: 420 };   // attack=rt46 调校场定版
 function actDelay(u, kind) {
   let d = RT_DELAY[kind] || 800;
   if (u.side === "foe" && kind === "move") {
@@ -3465,7 +3464,7 @@ function drawProjectiles(now) {
       grad.addColorStop(0, "#fff8d0"); grad.addColorStop(0.6, "#f0c060"); grad.addColorStop(1, "rgba(240,192,96,0)");
       ctx.fillStyle = grad;
       ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI * 2); ctx.fill();
-    } else if (fx2.arrow && fx2.arrow.ready) { // 水墨箭矢贴图：淡入-实-淡出，方向随弹道
+    } else if (p.side === "me" && fx2.arrow && fx2.arrow.ready) { // 水墨箭矢=我方专属（rt46 用户裁决：敌方特效全黑分不清，敌弩用程序浅色小箭）
       ctx.globalAlpha *= t < 0.12 ? t / 0.12 : (t > 0.82 ? (1 - t) / 0.18 : 1);
       if (fx2.arrow.halo) { ctx.globalAlpha *= 0.55; ctx.drawImage(fx2.arrow.halo, -38, -38, 76, 76); ctx.globalAlpha /= 0.55; }
       ctx.drawImage(fx2.arrow.img, -34, -34, 68, 68);
