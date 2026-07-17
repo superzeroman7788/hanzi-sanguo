@@ -66,7 +66,7 @@
       { label: "箭速", unit: "x", min: 0.5, max: 3, step: 0.1,
         get: () => FX_TRACKS.arrow.speed, set: v => FX_TRACKS.arrow.speed = v },
     ] },
-    { g: "蹄击 hoof（骑移动+攻击）", items: [
+    { g: "蹄尘 hoof（骑移动）", items: [
       { label: "时长", unit: "ms", min: 300, max: 1800, step: 50,
         get: () => FX_TRACKS.hoof.dur, set: v => FX_TRACKS.hoof.dur = v },
       { label: "大小", unit: "px", min: 50, max: 160, step: 4,

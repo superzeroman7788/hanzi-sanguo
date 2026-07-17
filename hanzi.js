@@ -393,6 +393,15 @@ const KF_SLASH = [
   { t: 390, dx: -3,  rot: -0.04, sx: 0.97, sy: 1.02 },
   { t: 520, dx: 0,   rot: 0,     sx: 1,    sy: 1 },
 ];
+// 骑攻击：人立蓄势→猛冲撞击→顿帧→回撤过冲（rt51：冲撞的直观感靠位移不靠粒子）
+const KF_CHARGE = [
+  { t: 0,   dx: 0,   rot: 0,     sx: 1,    sy: 1 },
+  { t: 150, dx: -9,  rot: -0.17, sx: 0.93, sy: 1.09 },
+  { t: 210, dx: 24,  rot: 0.15,  sx: 1.18, sy: 0.9 },
+  { t: 330, dx: 21,  rot: 0.13,  sx: 1.08, sy: 0.95 },
+  { t: 460, dx: -4,  rot: -0.05, sx: 0.97, sy: 1.02 },
+  { t: 600, dx: 0,   rot: 0,     sx: 1,    sy: 1 },
+];
 // 受击：瞬间歪斜+顿住 → 回正过冲
 const KF_HIT = [
   { t: 0,   dy: 0, rot: 0 },
@@ -938,7 +947,7 @@ function dealDamage(att, tgt, mult, opt = {}) {
   }
   // 受击后仰挤压；我方刀兵=格挡（幅度小回弹硬+盾光+锵声）
   const isBlock = tgt.side === "me" && tgt.cls === "infantry" && !tgt.hero;
-  tgt.hitAnim = { born: performance.now(), dir: Math.sign(tgt.row - att.row) || (tgt.side === "me" ? 1 : -1), block: isBlock };
+  tgt.hitAnim = { born: performance.now(), dir: Math.sign(tgt.row - att.row) || (tgt.side === "me" ? 1 : -1), block: isBlock, heavy: !!opt.heavy };
   if (isBlock) { SND.clang(); counterTag(tgt, "格挡！", "#8a7a40"); }
   gainRage(tgt, 16);
   const isHeroHit = !!att.hero;
@@ -1005,10 +1014,10 @@ function heroBasic(u, tgt) {
       dealDamage(u, tgt, 1.15);
       doShake(3);
       break;
-    case "cavalry":                        // 铁蹄冲击：刀光+小震
+    case "cavalry":                        // 铁蹄冲击：刀光+小震+重歪
       SND.hoof();
       spawnInkSlash(u, tgt);
-      dealDamage(u, tgt, 1.1);
+      dealDamage(u, tgt, 1.1, { heavy: true });
       doShake(2.5);
       break;
     case "archer":                         // 金色大箭
@@ -1274,11 +1283,14 @@ function unitActRT(u) {
       if (adj) {
         faceTo(u, adj.col, adj.row);
         u.state = "attack"; u.animStart = performance.now();
-        // 骑攻击专属：蹄击踏向目标（rt48 用户问"骑的攻击是啥"——此前攻击无特效只有移动蹄尘）
-        spawnDoodle("hoof", u.x * TILE + TILE / 2, u.y * TILE + TILE / 2,
-          Math.sign(adj.col - u.col) * 0.8, (Math.sign(adj.row - u.row) || -1) * 0.8);
-        dealDamage(u, adj, 1);
-        if (adj.ranged) { counterTag(adj, "拦截！", "#4a7a5a"); SND.counter(); hitstop(85); }   // 骑截远程：克制顿帧
+        SND.hoof();
+        // rt51：蹄印撤下（那是移动的语言），冲撞靠 KF_CHARGE 位移+撞击帧结算+目标重歪
+        setTimeout(() => {
+          if (adj.state === "dead" || u.state === "dead") return;
+          spawnInkBurst((u.x + adj.x) / 2 * TILE + TILE / 2, (u.y + adj.y) / 2 * TILE + TILE / 2);
+          dealDamage(u, adj, 1, { heavy: true });
+          if (adj.ranged) { counterTag(adj, "拦截！", "#4a7a5a"); SND.counter(); hitstop(85); }   // 骑截远程：克制顿帧
+        }, 210);   // 伤害对齐撞击帧
         gainRage(u, 26);
         return "attack";
       }
@@ -3063,13 +3075,14 @@ function drawTile(u, px, py, now, sizeBase) {
   let ox = 0, oy = 0, poseRot = 0, poseSx = 1, poseSy = 1;
   if (u.state === "attack") {
     const el = now - u.animStart;
-    const P = poseAt(KF_SLASH, el);
+    const track = u.cls === "cavalry" ? KF_CHARGE : KF_SLASH;   // 骑=冲撞三节拍
+    const P = poseAt(track, el);
     const dirX = u.dir === "left" ? -1 : u.dir === "right" ? 1 : 0;
     const dirY = u.dir === "up" ? -1 : u.dir === "down" ? 1 : 0;
     ox += P.dx * dirX; oy += P.dx * dirY;
     poseRot += P.rot * (dirX || dirY || 1) * (u.dir === "up" ? -1 : 1);
     poseSx *= P.sx; poseSy *= P.sy;
-    if (el > 540) u.state = "stand";
+    if (el > track[track.length - 1].t + 20) u.state = "stand";
   }
   // 受击：K帧歪斜顿住+回正过冲（刀兵格挡：幅度减半+盾光）
   let hitK = 0, blockGlow = 0;
@@ -3078,7 +3091,7 @@ function drawTile(u, px, py, now, sizeBase) {
     if (hel > 370) u.hitAnim = null;
     else {
       const P = poseAt(KF_HIT, hel);
-      const m = u.hitAnim.block ? 0.45 : 1;
+      const m = u.hitAnim.block ? 0.45 : u.hitAnim.heavy ? 1.7 : 1;   // heavy=被骑冲撞：重歪
       oy += P.dy * u.hitAnim.dir * m;
       poseRot += P.rot * u.hitAnim.dir * m * (u.side === "me" ? 1 : -1);
       hitK = Math.min(1, Math.abs(P.dy) / 6);
