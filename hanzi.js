@@ -440,7 +440,7 @@ function drawFx2(name, x, y, size, rot, alpha) {
 }
 // 特效运动曲线：animations/07-11 预览页定版的 CSS 关键帧移植（段间线性+整体缓出）
 const FX_TRACKS = {
-  slash: { dur: 750, size: 96, rotMode: "perp", frames: [
+  slash: { dur: 1150, size: 112, rotMode: "perp", frames: [
     { p: 0.00, o: 0,    x: -28, sx: 0.12,  sy: 0.72 },
     { p: 0.07, o: 0,    x: -28, sx: 0.12,  sy: 0.72 },
     { p: 0.18, o: 0.30, x: -18, sx: 0.38,  sy: 0.82 },
@@ -450,7 +450,7 @@ const FX_TRACKS = {
     { p: 0.88, o: 0,    x: 28,  sx: 1.075, sy: 0.94 },
     { p: 1.00, o: 0,    x: 28,  sx: 1.075, sy: 0.94 },
   ] },
-  stab: { dur: 650, size: 104, rotMode: "along", frames: [
+  stab: { dur: 1000, size: 118, rotMode: "along", frames: [
     { p: 0.00, o: 0,    x: -42, sx: 0.08,  sy: 0.62 },
     { p: 0.08, o: 0,    x: -42, sx: 0.08,  sy: 0.62 },
     { p: 0.24, o: 0.46, x: -20, sx: 0.42,  sy: 0.78 },
@@ -460,7 +460,7 @@ const FX_TRACKS = {
     { p: 0.90, o: 0,    x: 42,  sx: 1.13,  sy: 0.84 },
     { p: 1.00, o: 0,    x: 42,  sx: 1.13,  sy: 0.84 },
   ] },
-  burst: { dur: 620, size: 0, rotMode: "free", frames: [
+  burst: { dur: 1000, size: 0, rotMode: "free", frames: [
     { p: 0.00, o: 0,    s: 0.12, r: -0.21 },
     { p: 0.07, o: 0,    s: 0.12, r: -0.21 },
     { p: 0.24, o: 0.72, s: 0.58, r: -0.09 },
@@ -469,7 +469,7 @@ const FX_TRACKS = {
     { p: 0.75, o: 0.42, s: 1.13, r: 0.122 },
     { p: 1.00, o: 0,    s: 1.27, r: 0.157 },
   ] },
-  hoof: { dur: 650, size: 84, rotMode: "none", frames: [
+  hoof: { dur: 1000, size: 94, rotMode: "none", frames: [
     { p: 0.00, o: 0,    x: -28, y: 22,  s: 0.72 },
     { p: 0.08, o: 0,    x: -28, y: 22,  s: 0.72 },
     { p: 0.27, o: 0.78, x: -8,  y: 5,   s: 0.94 },
@@ -541,7 +541,7 @@ function drawInkSpecks(now) {
 let weaponDoodles = [];
 function spawnDoodle(kind, x, y, dirX, dirY) {
   weaponDoodles.push({ kind, x, y, dirX, dirY, born: performance.now() });
-  if (weaponDoodles.length > 14) weaponDoodles.shift();
+  if (weaponDoodles.length > 24) weaponDoodles.shift();
 }
 function drawWeaponDoodles(now) {
   weaponDoodles = weaponDoodles.filter(d => {
@@ -618,13 +618,13 @@ function drawCoinPops(now) {
 let inkBursts = [];
 function spawnInkBurst(x, y, big) {
   inkBursts.push({ x, y, born: performance.now(), big: !!big, seed: (Math.random() * 7) | 0 });
-  if (inkBursts.length > 12) inkBursts.shift();
+  if (inkBursts.length > 18) inkBursts.shift();
 }
 function drawInkBursts(now) {
   const burstReady = fx2.burst && fx2.burst.ready;
   inkBursts = inkBursts.filter(b => now - b.born < (burstReady ? FX_TRACKS.burst.dur : 460));
   for (const b of inkBursts) {
-    if (burstReady && drawFx2Kf("burst", b.x, b.y, b.big ? 100 : 74, b.seed * 0.9, (now - b.born) / FX_TRACKS.burst.dur)) continue;
+    if (burstReady && drawFx2Kf("burst", b.x, b.y, b.big ? 112 : 86, b.seed * 0.9, (now - b.born) / FX_TRACKS.burst.dur)) continue;
     const t = Math.min(1, (now - b.born) / 460);
     const R = (b.big ? 15 : 11) * (0.7 + t * 0.5);
     ctx.save();
@@ -1271,16 +1271,18 @@ function unitActRT(u) {
       u.state = "stand"; return "idle";
     }
     if (mode === "rover") {          // 骑：只守内线(缓冲区+部署区)，敌人进内线才追杀
+      // 贴脸就还手（不限内线）——修"卒骑隔线对峙互不掉血"：追击锁内线，反击不锁
+      const adj = foes.filter(f => dist(u, f) <= 1).sort((a, b) => b.row - a.row)[0];
+      if (adj) {
+        faceTo(u, adj.col, adj.row);
+        u.state = "attack"; u.animStart = performance.now();
+        dealDamage(u, adj, 1);
+        if (adj.ranged) { counterTag(adj, "拦截！", "#4a7a5a"); SND.counter(); hitstop(85); }   // 骑截远程：克制顿帧
+        gainRage(u, 26);
+        return "attack";
+      }
       const tgt = foes.filter(f => f.row >= 3).sort((a, b) => b.row - a.row)[0];
       if (tgt) {
-        if (dist(u, tgt) <= 1) {
-          faceTo(u, tgt.col, tgt.row);
-          u.state = "attack"; u.animStart = performance.now();
-          dealDamage(u, tgt, 1);
-          if (tgt.ranged) { counterTag(tgt, "拦截！", "#4a7a5a"); SND.counter(); hitstop(85); }   // 骑截远程：克制顿帧
-          gainRage(u, 26);
-          return "attack";
-        }
         const dc = Math.sign(tgt.col - u.col), dr = Math.sign(tgt.row - u.row);
         const stepTo = [[u.col + dc, u.row + dr], [u.col + dc, u.row], [u.col, u.row + dr]]
           .find(([c, r]) => c >= 0 && c < COLS && r >= 3 && r < ROWS && !alive().some(v => v !== u && v.col === c && v.row === r));
@@ -3273,6 +3275,7 @@ function drawTile(u, px, py, now, sizeBase) {
 }
 // 幻化：本列/射程内有敌就变兵器形，敌退收回字
 function unitEngaged(u) {
+  return false;   // rt44 用户裁决：幻化下线（兽面盾/大弩影响观感），字牌全程保持汉字；下方判定保留备用
   if (u.side !== "me" || u.hero || phase !== "fight") return false;
   const mode = CLASSES[u.cls] && CLASSES[u.cls].mode;
   const foes = alive("foe");
