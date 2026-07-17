@@ -934,14 +934,12 @@ function dealDamage(att, tgt, mult, opt = {}) {
   tgt.hp -= dmg;
   tgt.flashUntil = performance.now() + 130;
   if (phase === "fight" && tgt.col != null) {
-    spawnInkSpecks(tgt.x * TILE + TILE / 2, tgt.y * TILE + TILE / 2, crit ? 8 : 5);   // 墨被打散
-    if (Math.random() < 0.55) spawnInkBurst(tgt.x * TILE + TILE / 2 + (Math.random() - 0.5) * 14, tgt.y * TILE + TILE / 2 - 6 + (Math.random() - 0.5) * 10);
+    spawnInkSpecks(tgt.x * TILE + TILE / 2, tgt.y * TILE + TILE / 2, crit ? 8 : 5);   // 受击=墨的语言（rt49：随机墨渍/受击碎纸删除，碎纸只留给死亡）
   }
   // 受击后仰挤压；我方刀兵=格挡（幅度小回弹硬+盾光+锵声）
   const isBlock = tgt.side === "me" && tgt.cls === "infantry" && !tgt.hero;
   tgt.hitAnim = { born: performance.now(), dir: Math.sign(tgt.row - att.row) || (tgt.side === "me" ? 1 : -1), block: isBlock };
   if (isBlock) { SND.clang(); counterTag(tgt, "格挡！", "#8a7a40"); }
-  if (phase === "fight") spawnShreds(tgt, 2);   // 受击碎纸
   gainRage(tgt, 16);
   const isHeroHit = !!att.hero;
   const label = (crit ? "暴击 " : "-") + dmg;
