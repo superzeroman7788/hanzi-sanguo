@@ -460,7 +460,7 @@ const FX_TRACKS = {
     { p: 0.90, o: 0,    x: 42,  sx: 1.13,  sy: 0.84 },
     { p: 1.00, o: 0,    x: 42,  sx: 1.13,  sy: 0.84 },
   ] },
-  burst: { dur: 1000, size: 0, rotMode: "free", frames: [
+  burst: { dur: 1000, size: 0, sizeBig: 112, sizeSmall: 86, rotMode: "free", frames: [
     { p: 0.00, o: 0,    s: 0.12, r: -0.21 },
     { p: 0.07, o: 0,    s: 0.12, r: -0.21 },
     { p: 0.24, o: 0.72, s: 0.58, r: -0.09 },
@@ -624,7 +624,7 @@ function drawInkBursts(now) {
   const burstReady = fx2.burst && fx2.burst.ready;
   inkBursts = inkBursts.filter(b => now - b.born < (burstReady ? FX_TRACKS.burst.dur : 460));
   for (const b of inkBursts) {
-    if (burstReady && drawFx2Kf("burst", b.x, b.y, b.big ? 112 : 86, b.seed * 0.9, (now - b.born) / FX_TRACKS.burst.dur)) continue;
+    if (burstReady && drawFx2Kf("burst", b.x, b.y, b.big ? FX_TRACKS.burst.sizeBig : FX_TRACKS.burst.sizeSmall, b.seed * 0.9, (now - b.born) / FX_TRACKS.burst.dur)) continue;
     const t = Math.min(1, (now - b.born) / 460);
     const R = (b.big ? 15 : 11) * (0.7 + t * 0.5);
     ctx.save();
