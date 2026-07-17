@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>刀 · 丿拆字斩</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --gold: #c7a355;
+      --jade: #5b8a86;
+      --time: 1.8s;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: #181712; }
+    body {
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      color: #eee4cf;
+      font-family: system-ui, -apple-system, "PingFang SC", sans-serif;
+    }
+    main { width: min(100%, 430px); }
+    header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 10px;
+    }
+    h1 { margin: 0; font: 700 20px/1.2 "Kaiti SC", "STKaiti", serif; letter-spacing: .12em; }
+    .version { color: #9f9277; font-size: 11px; letter-spacing: .08em; }
+    .stage {
+      position: relative;
+      min-height: 560px;
+      overflow: hidden;
+      border: 1px solid #746446;
+      border-radius: 18px;
+      background:
+        radial-gradient(circle at 44% 43%, #fffaf0 0 18%, transparent 60%),
+        repeating-linear-gradient(4deg, transparent 0 29px, #7b674a0b 30px 31px),
+        linear-gradient(145deg, #f7efdf, #e8dcc4);
+      box-shadow: 0 22px 65px #0009, inset 0 0 80px #7d65421f;
+      isolation: isolate;
+    }
+    .stage::before {
+      content: "";
+      position: absolute;
+      inset: 24px;
+      border: 1px solid #76634224;
+      border-radius: 12px;
+      pointer-events: none;
+    }
+    .floor {
+      position: absolute;
+      left: 7%;
+      right: 7%;
+      top: 70%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #71644938 14% 86%, transparent);
+    }
+    .glyph {
+      position: absolute;
+      z-index: 5;
+      left: 41%;
+      top: 49%;
+      width: 68%;
+      aspect-ratio: 1;
+      translate: -50% -50%;
+      overflow: visible;
+      filter: drop-shadow(0 11px 8px #27251d30);
+      will-change: transform, filter;
+    }
+    .glyph image { pointer-events: none; }
+    .body-part,
+    .pie-part {
+      transform-box: fill-box;
+      will-change: transform, opacity, filter;
+    }
+    .pie-part {
+      transform-box: view-box;
+      transform-origin: 620px 360px;
+    }
+    .ground-shadow {
+      position: absolute;
+      z-index: 2;
+      left: 41%;
+      top: 67%;
+      width: 31%;
+      height: 20px;
+      translate: -50% -50%;
+      border-radius: 50%;
+      background: #2f2c2349;
+      filter: blur(8px);
+      will-change: transform, opacity;
+    }
+    .target {
+      position: absolute;
+      z-index: 2;
+      left: 82%;
+      top: 53%;
+      width: 42px;
+      height: 116px;
+      translate: -50% -50%;
+      border: 3px solid #6f5f48;
+      border-radius: 48% 48% 18% 18%;
+      background: linear-gradient(90deg, #b9a680, #e2d2af 45%, #9b8968);
+      box-shadow: 0 9px 12px #4f463331;
+      transform-origin: 50% 100%;
+    }
+    .target::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 30%;
+      width: 49px;
+      height: 49px;
+      translate: -50% -50%;
+      border: 4px solid #9c493d;
+      border-radius: 50%;
+      box-shadow: inset 0 0 0 7px #dfc9a6, inset 0 0 0 10px #9c493d;
+    }
+    .fx {
+      position: absolute;
+      z-index: 4;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+      pointer-events: none;
+    }
+    .arc-main,
+    .arc-echo {
+      fill: none;
+      stroke-linecap: round;
+      stroke-dasharray: 620;
+      stroke-dashoffset: 620;
+      opacity: 0;
+      will-change: stroke-dashoffset, opacity;
+    }
+    .arc-main { stroke: #f7efd6; stroke-width: 20; filter: drop-shadow(0 3px 0 #4f8581) drop-shadow(0 0 7px #fff8df); }
+    .arc-echo { stroke: #5b8a86a8; stroke-width: 7; }
+    .impact {
+      position: absolute;
+      z-index: 7;
+      left: 81%;
+      top: 50%;
+      width: 96px;
+      height: 96px;
+      translate: -50% -50%;
+      opacity: 0;
+      transform: scale(.25) rotate(-20deg);
+      will-change: transform, opacity;
+    }
+    .impact i,
+    .impact::before,
+    .impact::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 116px;
+      height: 9px;
+      translate: -50% -50%;
+      border-radius: 100%;
+      background: linear-gradient(90deg, transparent 0 4%, #9d493e 5% 31%, transparent 32% 68%, #9d493e 69% 95%, transparent 96%);
+    }
+    .impact::before { rotate: 60deg; }
+    .impact::after { rotate: 120deg; }
+    .impact i { display: block; rotate: 0deg; }
+    .spark {
+      position: absolute;
+      z-index: 8;
+      left: 81%;
+      top: 50%;
+      width: 30px;
+      height: 30px;
+      translate: -50% -50%;
+      opacity: 0;
+      border-radius: 45% 55% 50% 40%;
+      background: #fff8da;
+      box-shadow: 0 0 20px 8px #e8bd6388;
+      transform: rotate(45deg) scale(.2);
+    }
+    .caption {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 22px;
+      text-align: center;
+      color: #6e634e;
+      font-size: 12px;
+      letter-spacing: .08em;
+    }
+    .playing .body-part { animation: body-brace var(--time) linear both; }
+    .playing .pie-part { animation: pie-strike var(--time) cubic-bezier(.3,.02,.2,1) both; }
+    .playing .ground-shadow { animation: shadow-move var(--time) linear both; }
+    .playing .target { animation: target-hit var(--time) linear both; }
+    .playing .arc-main { animation: arc-draw var(--time) linear both; }
+    .playing .arc-echo { animation: arc-echo var(--time) linear both; }
+    .playing .impact { animation: impact-burst var(--time) linear both; }
+    .playing .spark { animation: spark-burst var(--time) linear both; }
+    .playing.stage { animation: camera-hit var(--time) linear both; }
+
+    @keyframes body-brace {
+      0%, 9%, 88%, 100% { transform: translate(0,0) rotate(0) scale(1); filter: none; }
+      19% { transform: translate(-7px,10px) rotate(-2deg) scaleX(1.03) scaleY(.95); }
+      32% { transform: translate(-13px,13px) rotate(-4deg) scaleX(1.045) scaleY(.94); }
+      42% { transform: translate(-17px,8px) rotate(-6deg) scaleX(1.04) scaleY(.955); filter: brightness(.92); }
+      52% { transform: translate(-8px,5px) rotate(2deg) scaleX(.985) scaleY(1.02); }
+      70% { transform: translate(2px,-2px) rotate(-.6deg) scale(1); }
+    }
+    @keyframes pie-strike {
+      0%, 9%, 88%, 100% { transform: translate(0,0) rotate(0) scale(1); filter: none; }
+      18% { transform: translate(-20px,10px) rotate(8deg) scale(1.03); }
+      27% { transform: translate(-30px,-30px) rotate(24deg) scale(1.09); filter: brightness(1.12) drop-shadow(0 0 5px #fff2bd); }
+      38% { transform: translate(-30px,-30px) rotate(-72deg) scale(1.2); filter: brightness(1.2) drop-shadow(0 0 9px #fff0b4); }
+      45% { transform: translate(30px,120px) rotate(-100deg) scale(1.15); }
+      56% { transform: translate(0,80px) rotate(-50deg) scale(1.07); filter: brightness(1.06); }
+      68% { transform: translate(50px,20px) rotate(-8deg) scale(1.02); }
+      78% { transform: translate(-5px,-3px) rotate(-5deg) scale(.995); }
+      84% { transform: translate(2px,1px) rotate(1.5deg) scale(1.005); }
+    }
+    @keyframes shadow-move {
+      0%, 9%, 88%, 100% { transform: scaleX(1); opacity: .72; }
+      27% { transform: translateX(-8px) scaleX(1.16); opacity: .82; }
+      42% { transform: translateX(-12px) scaleX(.92); opacity: .52; }
+      70% { transform: translateX(2px) scaleX(1.03); opacity: .7; }
+    }
+    @keyframes target-hit {
+      0%, 35%, 100% { transform: rotate(0) translateX(0); }
+      38% { transform: rotate(13deg) translateX(8px); }
+      42% { transform: rotate(-9deg) translateX(-3px); }
+      49% { transform: rotate(5deg) translateX(3px); }
+      59% { transform: rotate(-2deg) translateX(0); }
+      72% { transform: rotate(0) translateX(0); }
+    }
+    @keyframes arc-draw {
+      0%, 23% { stroke-dashoffset: 620; opacity: 0; }
+      29% { opacity: .95; }
+      40% { stroke-dashoffset: 0; opacity: 1; }
+      49% { stroke-dashoffset: -90; opacity: .35; }
+      55%,100% { stroke-dashoffset: -160; opacity: 0; }
+    }
+    @keyframes arc-echo {
+      0%, 27% { stroke-dashoffset: 620; opacity: 0; }
+      35% { opacity: .7; }
+      45% { stroke-dashoffset: 0; opacity: .6; }
+      58%,100% { stroke-dashoffset: -120; opacity: 0; }
+    }
+    @keyframes impact-burst {
+      0%, 35% { opacity: 0; transform: scale(.2) rotate(-20deg); }
+      38% { opacity: 1; transform: scale(1.18) rotate(4deg); }
+      44% { opacity: .78; transform: scale(.9) rotate(12deg); }
+      52%,100% { opacity: 0; transform: scale(1.42) rotate(20deg); }
+    }
+    @keyframes spark-burst {
+      0%, 35% { opacity: 0; transform: rotate(45deg) scale(.15); }
+      37% { opacity: 1; transform: rotate(45deg) scale(1.25); }
+      42% { opacity: .8; transform: rotate(45deg) scale(.62); }
+      49%,100% { opacity: 0; transform: rotate(45deg) scale(1.6); }
+    }
+    @keyframes camera-hit {
+      0%, 36%, 100% { background-position: 0 0, 0 0, 0 0; }
+      38% { background-position: -7px 2px, -7px 2px, -7px 2px; }
+      40% { background-position: 5px -2px, 5px -2px, 5px -2px; }
+      43% { background-position: -2px 1px, -2px 1px, -2px 1px; }
+      46% { background-position: 0 0, 0 0, 0 0; }
+    }
+    .controls { display: grid; grid-template-columns: 1.35fr 1fr; gap: 8px; margin-top: 12px; }
+    button {
+      min-height: 46px;
+      border: 1px solid #766646;
+      border-radius: 10px;
+      background: #2a2821;
+      color: #d7c8aa;
+      font: 600 13px/1 system-ui, sans-serif;
+      cursor: pointer;
+    }
+    button.primary { border-color: var(--gold); background: #e7dcc5; color: #30291d; box-shadow: 0 0 0 2px #c7a35524; }
+    button[aria-pressed="true"] { color: #f4dfaa; border-color: #b49148; }
+    .note { margin: 10px 3px 0; color: #9f9277; font-size: 12px; line-height: 1.6; }
+    .slow { --time: 4.5s; }
+    @media (max-height: 720px) {
+      .stage { min-height: 490px; }
+      .glyph { width: 63%; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .playing * { animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>刀 · 拆字斩</h1>
+      <span class="version">V3 / 下端斩</span>
+    </header>
+    <section class="stage" id="stage" aria-label="刀字左撇拆出攻击动画预览">
+      <div class="floor" aria-hidden="true"></div>
+      <div class="ground-shadow" aria-hidden="true"></div>
+      <div class="target" aria-hidden="true"></div>
+
+      <svg class="glyph" viewBox="0 0 1254 1254" aria-label="青绿色的汉字刀">
+        <defs>
+          <path id="pie-shape" d="M515 292 C605 276 724 292 746 365 C761 486 704 657 602 809 C507 951 377 1033 242 1025 C180 1021 143 994 158 946 C177 895 223 854 272 797 C383 666 449 535 486 410 C505 347 507 313 515 292 Z"/>
+          <clipPath id="pie-clip"><use href="#pie-shape"/></clipPath>
+          <mask id="body-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="1254" height="1254">
+            <rect width="1254" height="1254" fill="white"/>
+            <use href="#pie-shape" fill="black"/>
+          </mask>
+        </defs>
+        <g class="body-part">
+          <image href="../assets/units/dao/dao-complete.png" width="1254" height="1254" mask="url(#body-mask)"/>
+        </g>
+        <g class="pie-part" clip-path="url(#pie-clip)">
+          <image href="../assets/units/dao/dao-complete.png" width="1254" height="1254"/>
+        </g>
+      </svg>
+
+      <svg class="fx" viewBox="0 0 430 560" preserveAspectRatio="none" aria-hidden="true">
+        <path class="arc-main" d="M122 137 C211 139 314 207 358 304"/>
+        <path class="arc-echo" d="M134 158 C217 168 303 224 347 316"/>
+      </svg>
+      <div class="impact" aria-hidden="true"><i></i></div>
+      <div class="spark" aria-hidden="true"></div>
+      <div class="caption">拔丿 → 回旋斩 → 命中 → 归字</div>
+    </section>
+    <div class="controls" aria-label="播放控制">
+      <button class="primary" id="replay" type="button">再斩一次</button>
+      <button id="slow" type="button" aria-pressed="false">慢放检查</button>
+    </div>
+    <p class="note">上端脱离字身，下端刀尖沿弧线挥出；命中后完整归字，不留残影。</p>
+  </main>
+  <script>
+    const stage = document.getElementById('stage');
+    const replay = document.getElementById('replay');
+    const slow = document.getElementById('slow');
+    function play() {
+      stage.classList.remove('playing');
+      void stage.offsetWidth;
+      stage.classList.add('playing');
+    }
+    replay.addEventListener('click', play);
+    slow.addEventListener('click', () => {
+      const enabled = document.body.classList.toggle('slow');
+      slow.setAttribute('aria-pressed', String(enabled));
+      slow.textContent = enabled ? '恢复原速' : '慢放检查';
+      play();
+    });
+    window.addEventListener('load', () => setTimeout(play, 300));
+  </script>
+</body>
+</html>

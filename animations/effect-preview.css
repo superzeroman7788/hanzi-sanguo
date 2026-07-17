@@ -1,0 +1,66 @@
+:root { color-scheme:dark; --gold:#c7a355; --time:1s; }
+* { box-sizing:border-box; }
+html,body { margin:0; min-height:100%; background:#181712; }
+body { display:grid; place-items:center; padding:18px; color:#eee4cf; font-family:system-ui,-apple-system,"PingFang SC",sans-serif; }
+main { width:min(100%,520px); }
+header { display:flex; align-items:end; justify-content:space-between; gap:16px; margin-bottom:10px; }
+h1 { margin:0; font:700 20px/1.2 "Kaiti SC","STKaiti",serif; letter-spacing:.12em; }
+.version { color:#9f9277; font-size:11px; letter-spacing:.08em; }
+.stage {
+  position:relative; width:100%; aspect-ratio:1; overflow:hidden; isolation:isolate;
+  border:1px solid #746446; border-radius:18px;
+  background:
+    radial-gradient(circle at 50% 48%,#fffaf0 0 21%,transparent 67%),
+    repeating-linear-gradient(4deg,transparent 0 29px,#7b674a0b 30px 31px),
+    linear-gradient(145deg,#f7efdf,#e8dcc4);
+  box-shadow:0 22px 65px #0009,inset 0 0 80px #7d65421f;
+}
+.stage::before { content:""; position:absolute; inset:24px; border:1px solid #76634224; border-radius:12px; }
+.effect { position:absolute; z-index:2; opacity:0; pointer-events:none; mix-blend-mode:multiply; will-change:opacity,transform,filter; }
+.effect.stab { left:-3%; top:0; width:100%; transform-origin:13% 51%; }
+.effect.arrow { left:-3%; top:0; width:100%; transform-origin:16% 50%; }
+.effect.burst { left:4%; top:4%; width:92%; transform-origin:50% 50%; }
+.effect.hoof { left:2%; top:3%; width:96%; transform-origin:48% 66%; }
+.playing .stab { animation:stab var(--time) cubic-bezier(.12,.7,.18,1) both; }
+.playing .arrow { animation:arrow var(--time) cubic-bezier(.18,.72,.2,1) both; }
+.playing .burst { animation:burst var(--time) cubic-bezier(.12,.72,.18,1) both; }
+.playing .hoof { animation:hoof var(--time) cubic-bezier(.2,.62,.25,1) both; }
+@keyframes stab {
+  0%,8%{opacity:0;transform:translateX(-42px) scaleX(.08) scaleY(.62);filter:blur(1.5px)}
+  24%{opacity:.46;transform:translateX(-20px) scaleX(.42) scaleY(.78)}
+  42%{opacity:1;transform:translateX(2px) scaleX(1) scaleY(1);filter:blur(0) contrast(1.16) brightness(.84)}
+  55%{opacity:.82;transform:translateX(14px) scaleX(1.045) scaleY(.94)}
+  72%{opacity:.32;transform:translateX(28px) scaleX(1.09) scaleY(.88);filter:blur(.5px)}
+  90%,100%{opacity:0;transform:translateX(42px) scaleX(1.13) scaleY(.84);filter:blur(1.3px)}
+}
+@keyframes arrow {
+  0%,8%{opacity:0;transform:translateX(-92px) scale(.82);filter:blur(1.4px)}
+  20%{opacity:.58;transform:translateX(-62px) scale(.9)}
+  46%{opacity:1;transform:translateX(22px) scale(1);filter:blur(0) contrast(1.16) brightness(.84)}
+  65%{opacity:.88;transform:translateX(72px) scale(.98)}
+  84%{opacity:.28;transform:translateX(124px) scale(.95);filter:blur(.7px)}
+  100%{opacity:0;transform:translateX(162px) scale(.92);filter:blur(1.5px)}
+}
+@keyframes burst {
+  0%,7%{opacity:0;transform:scale(.12) rotate(-12deg);filter:blur(2px)}
+  24%{opacity:.72;transform:scale(.58) rotate(-5deg);filter:blur(.6px)}
+  43%{opacity:1;transform:scale(1.1) rotate(2deg);filter:blur(0) contrast(1.15) brightness(.82)}
+  58%{opacity:.86;transform:scale(.96) rotate(5deg)}
+  75%{opacity:.42;transform:scale(1.13) rotate(7deg);filter:blur(.5px)}
+  100%{opacity:0;transform:scale(1.27) rotate(9deg);filter:blur(1.8px)}
+}
+@keyframes hoof {
+  0%,8%{opacity:0;transform:translate(-28px,22px) scale(.72);filter:blur(1.5px)}
+  27%{opacity:.78;transform:translate(-8px,5px) scale(.94);filter:blur(.35px)}
+  43%{opacity:1;transform:translate(0,0) scale(1.04);filter:blur(0) contrast(1.08) brightness(.88)}
+  58%{opacity:.82;transform:translate(10px,-5px) scale(1)}
+  78%{opacity:.32;transform:translate(23px,-17px) scale(1.08);filter:blur(.8px)}
+  100%{opacity:0;transform:translate(36px,-30px) scale(1.15);filter:blur(2px)}
+}
+.controls { display:grid; grid-template-columns:1.35fr 1fr; gap:8px; margin-top:12px; }
+button { min-height:46px; border:1px solid #766646; border-radius:10px; background:#2a2821; color:#d7c8aa; font:600 13px/1 system-ui,sans-serif; cursor:pointer; }
+button.primary { border-color:var(--gold); background:#e7dcc5; color:#30291d; box-shadow:0 0 0 2px #c7a35524; }
+button[aria-pressed="true"] { color:#f4dfaa; border-color:#b49148; }
+.note { margin:10px 3px 0; color:#9f9277; font-size:12px; line-height:1.6; }
+.slow { --time:3s; }
+@media(prefers-reduced-motion:reduce){.playing .effect{animation:none!important}}

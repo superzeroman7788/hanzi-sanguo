@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>刀 · 第一套攻击动画</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --paper: #f1e8d5;
+      --gold: #c7a355;
+      --jade: #5b8a86;
+      --attack-time: 1.42s;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: #181712; }
+    body {
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      color: #eee4cf;
+      font-family: system-ui, -apple-system, "PingFang SC", sans-serif;
+    }
+    main { width: min(100%, 430px); }
+    header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 10px;
+    }
+    h1 {
+      margin: 0;
+      font: 700 20px/1.2 "Kaiti SC", "STKaiti", serif;
+      letter-spacing: .12em;
+    }
+    .version { color: #9f9277; font-size: 11px; letter-spacing: .08em; }
+    .stage {
+      position: relative;
+      min-height: 560px;
+      overflow: hidden;
+      border: 1px solid #746446;
+      border-radius: 18px;
+      background:
+        radial-gradient(circle at 46% 43%, #fffaf0 0 18%, transparent 60%),
+        repeating-linear-gradient(4deg, transparent 0 29px, #7b674a0b 30px 31px),
+        linear-gradient(145deg, #f7efdf, #e8dcc4);
+      box-shadow: 0 22px 65px #0009, inset 0 0 80px #7d65421f;
+      isolation: isolate;
+    }
+    .stage::before {
+      content: "";
+      position: absolute;
+      inset: 24px;
+      border: 1px solid #76634224;
+      border-radius: 12px;
+      pointer-events: none;
+    }
+    .floor {
+      position: absolute;
+      left: 10%;
+      right: 10%;
+      top: 70%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #71644938 16% 84%, transparent);
+    }
+    .fighter {
+      position: absolute;
+      z-index: 4;
+      left: 50%;
+      top: 50%;
+      width: 70%;
+      aspect-ratio: 1;
+      translate: -58% -53%;
+      transform-origin: 48% 72%;
+      will-change: transform, filter;
+    }
+    .dao {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: contain;
+      user-select: none;
+      pointer-events: none;
+      filter: drop-shadow(0 11px 8px #27251d30);
+    }
+    .ground-shadow {
+      position: absolute;
+      z-index: 2;
+      left: 43%;
+      top: 67%;
+      width: 32%;
+      height: 20px;
+      translate: -50% -50%;
+      border-radius: 50%;
+      background: #2f2c2347;
+      filter: blur(8px);
+      will-change: transform, opacity;
+    }
+    .slash {
+      position: absolute;
+      z-index: 3;
+      left: 46%;
+      top: 36%;
+      width: 49%;
+      height: 23%;
+      opacity: 0;
+      transform: rotate(19deg) scaleX(.2);
+      transform-origin: 0 50%;
+      border-top: 13px solid #f8f1dcdd;
+      border-radius: 50%;
+      filter: drop-shadow(0 0 4px #d8c595) drop-shadow(0 3px 0 #5b8a8688);
+      clip-path: polygon(0 0, 100% 0, 90% 52%, 5% 100%);
+      will-change: transform, opacity;
+    }
+    .slash::after {
+      content: "";
+      position: absolute;
+      left: 14%;
+      right: 8%;
+      top: -5px;
+      height: 2px;
+      background: #3f7774a8;
+    }
+    .impact {
+      position: absolute;
+      z-index: 5;
+      left: 80%;
+      top: 52%;
+      width: 74px;
+      height: 74px;
+      translate: -50% -50%;
+      opacity: 0;
+      border: 3px solid #b04e3f;
+      border-radius: 50%;
+      transform: scale(.25);
+      will-change: transform, opacity;
+    }
+    .impact::before,
+    .impact::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 116px;
+      height: 3px;
+      background: linear-gradient(90deg, transparent 0 12%, #9a4135 12% 31%, transparent 31% 69%, #9a4135 69% 88%, transparent 88%);
+      translate: -50% -50%;
+    }
+    .impact::after { rotate: 90deg; }
+    .dust {
+      position: absolute;
+      z-index: 3;
+      left: 31%;
+      top: 67%;
+      width: 34%;
+      height: 38px;
+      opacity: 0;
+      background:
+        radial-gradient(ellipse at 12% 70%, #9a8b7066 0 7%, transparent 8%),
+        radial-gradient(ellipse at 38% 48%, #9a8b7055 0 9%, transparent 10%),
+        radial-gradient(ellipse at 68% 67%, #9a8b704c 0 8%, transparent 9%),
+        radial-gradient(ellipse at 91% 43%, #9a8b7040 0 6%, transparent 7%);
+      will-change: transform, opacity;
+    }
+    .caption {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 22px;
+      text-align: center;
+      color: #6e634e;
+      font-size: 12px;
+      letter-spacing: .08em;
+    }
+    .playing .fighter { animation: dao-attack var(--attack-time) linear both; }
+    .playing .ground-shadow { animation: shadow-attack var(--attack-time) linear both; }
+    .playing .slash { animation: slash-attack var(--attack-time) linear both; }
+    .playing .impact { animation: impact-attack var(--attack-time) linear both; }
+    .playing .dust { animation: dust-attack var(--attack-time) linear both; }
+    .playing.stage { animation: stage-hit var(--attack-time) linear both; }
+
+    @keyframes dao-attack {
+      0%, 8%   { transform: translate(0, 0) rotate(0) scale(1); filter: none; }
+      20%      { transform: translate(-17px, 12px) rotate(-3deg) scaleX(.965) scaleY(.94); }
+      27%      { transform: translate(-21px, 10px) rotate(-4deg) scaleX(.96) scaleY(.945); }
+      35%      { transform: translate(69px, -7px) rotate(7deg) scaleX(1.055) scaleY(.97); filter: brightness(1.08); }
+      40%      { transform: translate(78px, -2px) rotate(5deg) scaleX(1.025) scaleY(.985); }
+      52%      { transform: translate(59px, 5px) rotate(1deg) scaleX(.985) scaleY(1.015); filter: none; }
+      66%      { transform: translate(17px, 2px) rotate(-1deg) scale(1); }
+      79%      { transform: translate(-4px, 0) rotate(.35deg) scale(1); }
+      90%,100% { transform: translate(0, 0) rotate(0) scale(1); filter: none; }
+    }
+    @keyframes shadow-attack {
+      0%, 8%, 90%, 100% { transform: translateX(0) scaleX(1); opacity: .72; }
+      27% { transform: translateX(-13px) scaleX(1.15); opacity: .85; }
+      40% { transform: translateX(54px) scaleX(.82); opacity: .55; }
+      52% { transform: translateX(43px) scaleX(1.04); opacity: .7; }
+      79% { transform: translateX(-3px) scaleX(1.02); opacity: .74; }
+    }
+    @keyframes slash-attack {
+      0%, 29% { opacity: 0; transform: rotate(19deg) scaleX(.15); }
+      34% { opacity: .95; transform: rotate(19deg) scaleX(1); }
+      40% { opacity: .62; transform: rotate(19deg) scaleX(1.08); }
+      47%,100% { opacity: 0; transform: rotate(19deg) scaleX(1.16); }
+    }
+    @keyframes impact-attack {
+      0%, 34% { opacity: 0; transform: scale(.25) rotate(-12deg); }
+      37% { opacity: 1; transform: scale(1.08) rotate(0); }
+      43% { opacity: .72; transform: scale(.88) rotate(8deg); }
+      51%,100% { opacity: 0; transform: scale(1.3) rotate(12deg); }
+    }
+    @keyframes dust-attack {
+      0%, 18% { opacity: 0; transform: translateX(0) scale(.7); }
+      28% { opacity: .8; transform: translateX(-9px) scale(1); }
+      41% { opacity: .3; transform: translateX(8px) scale(1.15); }
+      50%,100% { opacity: 0; transform: translateX(18px) scale(1.25); }
+    }
+    @keyframes stage-hit {
+      0%, 35%, 100% { background-position: 0 0, 0 0, 0 0; }
+      37% { background-position: -3px 1px, -3px 1px, -3px 1px; }
+      39% { background-position: 3px -1px, 3px -1px, 3px -1px; }
+      42% { background-position: 0 0, 0 0, 0 0; }
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: 1.35fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    button {
+      min-height: 46px;
+      border: 1px solid #766646;
+      border-radius: 10px;
+      background: #2a2821;
+      color: #d7c8aa;
+      font: 600 13px/1 system-ui, sans-serif;
+      cursor: pointer;
+    }
+    button.primary {
+      border-color: var(--gold);
+      background: #e7dcc5;
+      color: #30291d;
+      box-shadow: 0 0 0 2px #c7a35524;
+    }
+    button[aria-pressed="true"] { color: #f4dfaa; border-color: #b49148; }
+    .note { margin: 10px 3px 0; color: #9f9277; font-size: 12px; line-height: 1.6; }
+    .slow { --attack-time: 3.55s; }
+    @media (max-height: 720px) {
+      .stage { min-height: 490px; }
+      .fighter { width: 65%; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .playing .fighter,
+      .playing .ground-shadow,
+      .playing .slash,
+      .playing .impact,
+      .playing .dust,
+      .playing.stage { animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>刀 · 第一式</h1>
+      <span class="version">V1 / 突进斩</span>
+    </header>
+    <section class="stage" id="stage" aria-label="刀字第一套攻击动画预览">
+      <div class="floor" aria-hidden="true"></div>
+      <div class="ground-shadow" aria-hidden="true"></div>
+      <div class="dust" aria-hidden="true"></div>
+      <div class="slash" aria-hidden="true"></div>
+      <div class="impact" aria-hidden="true"></div>
+      <div class="fighter">
+        <img class="dao" src="../assets/units/dao/dao-complete.png" alt="青绿色的汉字刀">
+      </div>
+      <div class="caption" id="caption">蓄力 → 突进 → 命中 → 收势</div>
+    </section>
+    <div class="controls" aria-label="播放控制">
+      <button class="primary" id="replay" type="button">再斩一次</button>
+      <button id="slow" type="button" aria-pressed="false">慢放检查</button>
+    </div>
+    <p class="note">第一套只验证近战攻击的重量、速度和命中感；完整字形全程保留。</p>
+  </main>
+  <script>
+    const stage = document.getElementById('stage');
+    const replay = document.getElementById('replay');
+    const slow = document.getElementById('slow');
+
+    function play() {
+      stage.classList.remove('playing');
+      void stage.offsetWidth;
+      stage.classList.add('playing');
+    }
+
+    replay.addEventListener('click', play);
+    slow.addEventListener('click', () => {
+      const enabled = document.body.classList.toggle('slow');
+      slow.setAttribute('aria-pressed', String(enabled));
+      slow.textContent = enabled ? '恢复原速' : '慢放检查';
+      play();
+    });
+
+    window.addEventListener('load', () => setTimeout(play, 280));
+  </script>
+</body>
+</html>

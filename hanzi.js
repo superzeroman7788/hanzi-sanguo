@@ -405,7 +405,7 @@ const KF_HIT = [
 const fx2 = {};
 ["slash", "stab", "burst", "arrow", "hoof"].forEach(name => {
   fx2[name] = { ready: false };
-  loadKeyedImage(`assets/fx2/${name}.png`).then(c => {
+  loadKeyedImage(`assets/effects/${name}.png`).then(c => {
     if (!c) return;
     // 白底抠透明（loadKeyedImage 只抠纯黑，这里再抠亮色背景）
     const g = c.getContext("2d");
@@ -416,7 +416,15 @@ const fx2 = {};
       else if (lum > 205) p[i + 3] = Math.min(p[i + 3], Math.round(255 * (232 - lum) / 27));
     }
     g.putImageData(d, 0, 0);
-    fx2[name] = { ready: true, img: c };
+    // 预烤纸色剪影衬光：黑墨特效叠在玄铁敌盘上时用它垫底保对比，宣纸底上近乎隐形
+    const h = document.createElement("canvas");
+    h.width = c.width; h.height = c.height;
+    const hg = h.getContext("2d");
+    hg.drawImage(c, 0, 0);
+    hg.globalCompositeOperation = "source-in";
+    hg.fillStyle = "#f6ecd4";
+    hg.fillRect(0, 0, h.width, h.height);
+    fx2[name] = { ready: true, img: c, halo: h };
   }).catch(() => {});
 });
 function drawFx2(name, x, y, size, rot, alpha) {
@@ -426,6 +434,84 @@ function drawFx2(name, x, y, size, rot, alpha) {
   ctx.globalAlpha *= alpha;
   ctx.translate(x, y);
   ctx.rotate(rot);
+  ctx.drawImage(e.img, -size / 2, -size / 2, size, size);
+  ctx.restore();
+  return true;
+}
+// 特效运动曲线：animations/07-11 预览页定版的 CSS 关键帧移植（段间线性+整体缓出）
+const FX_TRACKS = {
+  slash: { dur: 750, size: 96, rotMode: "perp", frames: [
+    { p: 0.00, o: 0,    x: -28, sx: 0.12,  sy: 0.72 },
+    { p: 0.07, o: 0,    x: -28, sx: 0.12,  sy: 0.72 },
+    { p: 0.18, o: 0.30, x: -18, sx: 0.38,  sy: 0.82 },
+    { p: 0.39, o: 0.96, x: 0,   sx: 1,     sy: 1 },
+    { p: 0.52, o: 0.88, x: 8,   sx: 1.025, sy: 0.985 },
+    { p: 0.70, o: 0.38, x: 18,  sx: 1.055, sy: 0.96 },
+    { p: 0.88, o: 0,    x: 28,  sx: 1.075, sy: 0.94 },
+    { p: 1.00, o: 0,    x: 28,  sx: 1.075, sy: 0.94 },
+  ] },
+  stab: { dur: 650, size: 104, rotMode: "along", frames: [
+    { p: 0.00, o: 0,    x: -42, sx: 0.08,  sy: 0.62 },
+    { p: 0.08, o: 0,    x: -42, sx: 0.08,  sy: 0.62 },
+    { p: 0.24, o: 0.46, x: -20, sx: 0.42,  sy: 0.78 },
+    { p: 0.42, o: 1,    x: 2,   sx: 1,     sy: 1 },
+    { p: 0.55, o: 0.82, x: 14,  sx: 1.045, sy: 0.94 },
+    { p: 0.72, o: 0.32, x: 28,  sx: 1.09,  sy: 0.88 },
+    { p: 0.90, o: 0,    x: 42,  sx: 1.13,  sy: 0.84 },
+    { p: 1.00, o: 0,    x: 42,  sx: 1.13,  sy: 0.84 },
+  ] },
+  burst: { dur: 620, size: 0, rotMode: "free", frames: [
+    { p: 0.00, o: 0,    s: 0.12, r: -0.21 },
+    { p: 0.07, o: 0,    s: 0.12, r: -0.21 },
+    { p: 0.24, o: 0.72, s: 0.58, r: -0.09 },
+    { p: 0.43, o: 1,    s: 1.10, r: 0.035 },
+    { p: 0.58, o: 0.86, s: 0.96, r: 0.087 },
+    { p: 0.75, o: 0.42, s: 1.13, r: 0.122 },
+    { p: 1.00, o: 0,    s: 1.27, r: 0.157 },
+  ] },
+  hoof: { dur: 650, size: 84, rotMode: "none", frames: [
+    { p: 0.00, o: 0,    x: -28, y: 22,  s: 0.72 },
+    { p: 0.08, o: 0,    x: -28, y: 22,  s: 0.72 },
+    { p: 0.27, o: 0.78, x: -8,  y: 5,   s: 0.94 },
+    { p: 0.43, o: 1,    x: 0,   y: 0,   s: 1.04 },
+    { p: 0.58, o: 0.82, x: 10,  y: -5,  s: 1 },
+    { p: 0.78, o: 0.32, x: 23,  y: -17, s: 1.08 },
+    { p: 1.00, o: 0,    x: 36,  y: -30, s: 1.15 },
+  ] },
+};
+function fxKfAt(frames, t) {
+  t = 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 2.2);   // 整体缓出≈预览页的 cubic-bezier
+  let a = frames[0], b = frames[frames.length - 1];
+  for (let i = 1; i < frames.length; i++) {
+    if (t <= frames[i].p) { a = frames[i - 1]; b = frames[i]; break; }
+  }
+  const k = b.p === a.p ? 0 : (t - a.p) / (b.p - a.p);
+  const L = (u, v, dv) => { u = u == null ? dv : u; v = v == null ? dv : v; return u + (v - u) * k; };
+  return { o: L(a.o, b.o, 0), x: L(a.x, b.x, 0), y: L(a.y, b.y, 0), r: L(a.r, b.r, 0),
+           sx: L(a.sx != null ? a.sx : a.s, b.sx != null ? b.sx : b.s, 1),
+           sy: L(a.sy != null ? a.sy : a.s, b.sy != null ? b.sy : b.s, 1) };
+}
+// 按定版曲线播放特效贴图；预览页位移基于大舞台，这里按显示尺寸等比折算
+function drawFx2Kf(name, x, y, size, dirRot, t) {
+  const e = fx2[name], tr = FX_TRACKS[name];
+  if (!e || !e.ready || !tr) return false;
+  const k = fxKfAt(tr.frames, t);
+  if (k.o <= 0.01) return true;
+  const rot = tr.rotMode === "perp" ? dirRot + Math.PI / 2
+            : tr.rotMode === "none" ? 0 : dirRot;
+  const f = size / 260;
+  ctx.save();
+  ctx.globalAlpha *= k.o;
+  ctx.translate(x, y);
+  ctx.rotate(rot + k.r);
+  ctx.translate(k.x * f, k.y * f);
+  ctx.scale(k.sx, k.sy);
+  if (e.halo) {
+    ctx.globalAlpha *= 0.55;
+    const hs = size * 1.12;
+    ctx.drawImage(e.halo, -hs / 2, -hs / 2, hs, hs);
+    ctx.globalAlpha /= 0.55;
+  }
   ctx.drawImage(e.img, -size / 2, -size / 2, size, size);
   ctx.restore();
   return true;
@@ -458,15 +544,19 @@ function spawnDoodle(kind, x, y, dirX, dirY) {
   if (weaponDoodles.length > 14) weaponDoodles.shift();
 }
 function drawWeaponDoodles(now) {
-  weaponDoodles = weaponDoodles.filter(d => now - d.born < 330);
+  weaponDoodles = weaponDoodles.filter(d => {
+    const tr = fx2[d.kind] && fx2[d.kind].ready && FX_TRACKS[d.kind];
+    return now - d.born < (tr ? tr.dur : 330);
+  });
   for (const d of weaponDoodles) {
+    const rot2 = Math.atan2(d.dirY, d.dirX);
+    // 优先贴图（AI水墨特效），按定版曲线播放
+    const tr = FX_TRACKS[d.kind];
+    if (tr && drawFx2Kf(d.kind, d.x + d.dirX * 16, d.y + d.dirY * 16, tr.size, rot2, (now - d.born) / tr.dur)) continue;
     const t = (now - d.born) / 330;
     const dist2 = 14 + 30 * t;
     const x = d.x + d.dirX * dist2, y = d.y + d.dirY * dist2;
     const a2 = t < 0.15 ? t / 0.15 : 1 - (t - 0.15) / 0.85;
-    const rot2 = Math.atan2(d.dirY, d.dirX);
-    // 优先贴图（AI水墨特效），带轻微放大
-    if (drawFx2(d.kind, x, y, 54 * (0.85 + t * 0.5), rot2 + Math.PI / 2, a2)) continue;
     ctx.save();
     ctx.globalAlpha = a2;
     ctx.strokeStyle = "#241811"; ctx.lineWidth = 2.6; ctx.lineCap = "round";
@@ -531,11 +621,12 @@ function spawnInkBurst(x, y, big) {
   if (inkBursts.length > 12) inkBursts.shift();
 }
 function drawInkBursts(now) {
-  inkBursts = inkBursts.filter(b => now - b.born < 460);
+  const burstReady = fx2.burst && fx2.burst.ready;
+  inkBursts = inkBursts.filter(b => now - b.born < (burstReady ? FX_TRACKS.burst.dur : 460));
   for (const b of inkBursts) {
-    const t = (now - b.born) / 460;
+    if (burstReady && drawFx2Kf("burst", b.x, b.y, b.big ? 100 : 74, b.seed * 0.9, (now - b.born) / FX_TRACKS.burst.dur)) continue;
+    const t = Math.min(1, (now - b.born) / 460);
     const R = (b.big ? 15 : 11) * (0.7 + t * 0.5);
-    if (drawFx2("burst", b.x, b.y, (b.big ? 76 : 56) * (0.6 + t * 0.7), b.seed * 0.9, 1 - t * t)) continue;
     ctx.save();
     ctx.globalAlpha = 1 - t * t;
     ctx.fillStyle = "#1c140c";
@@ -3371,6 +3462,10 @@ function drawProjectiles(now) {
       grad.addColorStop(0, "#fff8d0"); grad.addColorStop(0.6, "#f0c060"); grad.addColorStop(1, "rgba(240,192,96,0)");
       ctx.fillStyle = grad;
       ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI * 2); ctx.fill();
+    } else if (fx2.arrow && fx2.arrow.ready) { // 水墨箭矢贴图：淡入-实-淡出，方向随弹道
+      ctx.globalAlpha *= t < 0.12 ? t / 0.12 : (t > 0.82 ? (1 - t) / 0.18 : 1);
+      if (fx2.arrow.halo) { ctx.globalAlpha *= 0.55; ctx.drawImage(fx2.arrow.halo, -38, -38, 76, 76); ctx.globalAlpha /= 0.55; }
+      ctx.drawImage(fx2.arrow.img, -34, -34, 68, 68);
     } else {                                // 普通箭矢
       ctx.strokeStyle = "#e8d9b0"; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(-8, 0); ctx.lineTo(6, 0); ctx.stroke();

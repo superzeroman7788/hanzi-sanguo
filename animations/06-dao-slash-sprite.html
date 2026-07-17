@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>刀 · slash.png 动画测试</title>
+  <style>
+    :root { color-scheme:dark; --gold:#c7a355; --time:1.8s; }
+    * { box-sizing:border-box; }
+    html,body { margin:0; min-height:100%; background:#181712; }
+    body { display:grid; place-items:center; padding:18px; color:#eee4cf; font-family:system-ui,-apple-system,"PingFang SC",sans-serif; }
+    main { width:min(100%,430px); }
+    header { display:flex; align-items:end; justify-content:space-between; gap:16px; margin-bottom:10px; }
+    h1 { margin:0; font:700 20px/1.2 "Kaiti SC","STKaiti",serif; letter-spacing:.12em; }
+    .version { color:#9f9277; font-size:11px; letter-spacing:.08em; }
+    .stage {
+      position:relative; min-height:560px; overflow:hidden; isolation:isolate;
+      border:1px solid #746446; border-radius:18px;
+      background:
+        radial-gradient(circle at 44% 43%,#fffaf0 0 18%,transparent 60%),
+        repeating-linear-gradient(4deg,transparent 0 29px,#7b674a0b 30px 31px),
+        linear-gradient(145deg,#f7efdf,#e8dcc4);
+      box-shadow:0 22px 65px #0009,inset 0 0 80px #7d65421f;
+    }
+    .stage::before { content:""; position:absolute; inset:24px; border:1px solid #76634224; border-radius:12px; }
+    .floor { position:absolute; z-index:1; left:7%; right:7%; top:70%; height:1px; background:linear-gradient(90deg,transparent,#71644938 14% 86%,transparent); }
+    .glyph {
+      position:absolute; z-index:5; left:41%; top:49%; width:68%; aspect-ratio:1;
+      translate:-50% -50%; overflow:visible; filter:drop-shadow(0 11px 8px #27251d30);
+    }
+    .body-part,.pie-part { will-change:transform,filter; }
+    .pie-part { transform-box:view-box; transform-origin:620px 360px; }
+    .ground-shadow {
+      position:absolute; z-index:2; left:41%; top:67%; width:31%; height:20px;
+      translate:-50% -50%; border-radius:50%; background:#2f2c2349; filter:blur(8px);
+    }
+    .target {
+      position:absolute; z-index:3; left:82%; top:53%; width:42px; height:116px;
+      translate:-50% -50%; border:3px solid #6f5f48; border-radius:48% 48% 18% 18%;
+      background:linear-gradient(90deg,#b9a680,#e2d2af 45%,#9b8968); box-shadow:0 9px 12px #4f463331;
+      transform-origin:50% 100%;
+    }
+    .target::before { content:""; position:absolute; left:50%; top:30%; width:49px; height:49px; translate:-50% -50%; border:3px solid #75674e; border-radius:50%; box-shadow:inset 0 0 0 7px #dfc9a6,inset 0 0 0 10px #75674e; }
+    .slash-sprite {
+      position:absolute; z-index:4; left:-7%; top:-3%; width:112%; height:auto;
+      opacity:0; clip-path:inset(0 100% 0 0); transform-origin:11% 52%;
+      transform:translateX(-28px) scaleX(.62) scaleY(.84);
+      mix-blend-mode:multiply; pointer-events:none; will-change:transform,opacity,clip-path,filter;
+    }
+    .ink-hit {
+      position:absolute; z-index:7; left:81%; top:50%; width:72px; height:72px;
+      translate:-50% -50%; opacity:0; transform:scale(.2) rotate(-18deg);
+      border-radius:42% 58% 36% 64% / 57% 39% 61% 43%;
+      background:radial-gradient(circle at 48% 48%,#121411 0 18%,#25261fbf 20% 38%,transparent 68%);
+      filter:blur(.35px); mix-blend-mode:multiply;
+    }
+    .caption { position:absolute; left:0; right:0; bottom:22px; text-align:center; color:#6e634e; font-size:12px; letter-spacing:.08em; }
+
+    .playing .body-part { animation:body-brace var(--time) linear both; }
+    .playing .pie-part { animation:pie-strike var(--time) cubic-bezier(.3,.02,.2,1) both; }
+    .playing .ground-shadow { animation:shadow var(--time) linear both; }
+    .playing .target { animation:target-hit var(--time) linear both; }
+    .playing .slash-sprite { animation:slash-show var(--time) linear both; }
+    .playing .ink-hit { animation:ink-hit var(--time) linear both; }
+
+    @keyframes body-brace {
+      0%,9%,88%,100%{transform:translate(0,0) rotate(0) scale(1)}
+      19%{transform:translate(-7px,10px) rotate(-2deg) scaleX(1.03) scaleY(.95)}
+      32%{transform:translate(-13px,13px) rotate(-4deg) scaleX(1.045) scaleY(.94)}
+      42%{transform:translate(-17px,8px) rotate(-6deg) scaleX(1.04) scaleY(.955)}
+      54%{transform:translate(-8px,5px) rotate(2deg) scaleX(.985) scaleY(1.02)}
+      72%{transform:translate(2px,-2px) rotate(-.6deg) scale(1)}
+    }
+    @keyframes pie-strike {
+      0%,9%,88%,100%{transform:translate(0,0) rotate(0) scale(1);filter:none}
+      18%{transform:translate(-20px,10px) rotate(8deg) scale(1.03)}
+      27%{transform:translate(-30px,-30px) rotate(24deg) scale(1.09);filter:brightness(1.04)}
+      38%{transform:translate(-30px,-30px) rotate(-72deg) scale(1.2);filter:brightness(.88) contrast(1.06)}
+      45%{transform:translate(30px,120px) rotate(-100deg) scale(1.15)}
+      56%{transform:translate(0,80px) rotate(-50deg) scale(1.07)}
+      68%{transform:translate(50px,20px) rotate(-8deg) scale(1.02)}
+      78%{transform:translate(-5px,-3px) rotate(-5deg) scale(.995)}
+      84%{transform:translate(2px,1px) rotate(1.5deg) scale(1.005)}
+    }
+    @keyframes slash-show {
+      0%,24%{opacity:0;clip-path:inset(0 100% 0 0);transform:translateX(-28px) scaleX(.62) scaleY(.84);filter:blur(1.2px)}
+      29%{opacity:.28;clip-path:inset(0 66% 0 0);transform:translateX(-18px) scaleX(.75) scaleY(.88)}
+      37%{opacity:.88;clip-path:inset(0 0 0 0);transform:translateX(0) scaleX(1) scaleY(1);filter:blur(0)}
+      43%{opacity:.72;clip-path:inset(0 0 0 0);transform:translateX(10px) scaleX(1.03) scaleY(.98)}
+      51%{opacity:.24;clip-path:inset(0 0 0 16%);transform:translateX(20px) scaleX(1.055) scaleY(.96);filter:blur(.5px)}
+      59%,100%{opacity:0;clip-path:inset(0 0 0 58%);transform:translateX(28px) scaleX(1.07) scaleY(.95);filter:blur(1.2px)}
+    }
+    @keyframes ink-hit { 0%,35%{opacity:0;transform:scale(.2) rotate(-18deg)} 39%{opacity:.86;transform:scale(1.15) rotate(3deg)} 48%{opacity:.5;transform:scale(.96) rotate(8deg)} 65%,100%{opacity:0;transform:scale(1.2) rotate(8deg)} }
+    @keyframes shadow { 0%,9%,88%,100%{transform:scaleX(1);opacity:.72} 27%{transform:translateX(-8px) scaleX(1.16);opacity:.82} 42%{transform:translateX(-12px) scaleX(.92);opacity:.52} }
+    @keyframes target-hit { 0%,35%,100%{transform:rotate(0)} 39%{transform:rotate(13deg) translateX(8px)} 43%{transform:rotate(-8deg)} 51%{transform:rotate(4deg)} 68%{transform:rotate(0)} }
+
+    .controls { display:grid; grid-template-columns:1.35fr 1fr; gap:8px; margin-top:12px; }
+    button { min-height:46px; border:1px solid #766646; border-radius:10px; background:#2a2821; color:#d7c8aa; font:600 13px/1 system-ui,sans-serif; cursor:pointer; }
+    button.primary { border-color:var(--gold); background:#e7dcc5; color:#30291d; box-shadow:0 0 0 2px #c7a35524; }
+    button[aria-pressed="true"] { color:#f4dfaa; border-color:#b49148; }
+    .note { margin:10px 3px 0; color:#9f9277; font-size:12px; line-height:1.6; }
+    .slow { --time:4.5s; }
+    @media(max-height:720px){.stage{min-height:490px}.glyph{width:63%}}
+    @media(prefers-reduced-motion:reduce){.playing *{animation:none!important}}
+  </style>
+</head>
+<body>
+  <main>
+    <header><h1>刀 · 实图墨锋</h1><span class="version">V1 / slash.png</span></header>
+    <section class="stage" id="stage" aria-label="slash.png 刀光实图动画预览">
+      <div class="floor" aria-hidden="true"></div>
+      <div class="ground-shadow" aria-hidden="true"></div>
+      <div class="target" aria-hidden="true"></div>
+      <img class="slash-sprite" src="../assets/effects/slash.png" alt="水平向右的弯月形水墨刀光">
+      <svg class="glyph" viewBox="0 0 1254 1254" aria-label="青绿色的汉字刀">
+        <defs>
+          <path id="pie-shape" d="M515 292 C605 276 724 292 746 365 C761 486 704 657 602 809 C507 951 377 1033 242 1025 C180 1021 143 994 158 946 C177 895 223 854 272 797 C383 666 449 535 486 410 C505 347 507 313 515 292 Z"/>
+          <clipPath id="pie-clip"><use href="#pie-shape"/></clipPath>
+          <mask id="body-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="1254" height="1254"><rect width="1254" height="1254" fill="white"/><use href="#pie-shape" fill="black"/></mask>
+        </defs>
+        <g class="body-part"><image href="../assets/units/dao/dao-complete.png" width="1254" height="1254" mask="url(#body-mask)"/></g>
+        <g class="pie-part" clip-path="url(#pie-clip)"><image href="../assets/units/dao/dao-complete.png" width="1254" height="1254"/></g>
+      </svg>
+      <div class="ink-hit" aria-hidden="true"></div>
+      <div class="caption">下端挥出 → 实图刀光展开 → 墨击</div>
+    </section>
+    <div class="controls" aria-label="播放控制"><button class="primary" id="replay" type="button">再斩一次</button><button id="slow" type="button" aria-pressed="false">慢放检查</button></div>
+    <p class="note">本页只验证 slash.png 与“丿”的时序、方向和遮挡关系。</p>
+  </main>
+  <script>
+    const stage=document.getElementById('stage'),replay=document.getElementById('replay'),slow=document.getElementById('slow');
+    function play(){stage.classList.remove('playing');void stage.offsetWidth;stage.classList.add('playing')}
+    replay.addEventListener('click',play);
+    slow.addEventListener('click',()=>{const on=document.body.classList.toggle('slow');slow.setAttribute('aria-pressed',String(on));slow.textContent=on?'恢复原速':'慢放检查';play()});
+    window.addEventListener('load',()=>setTimeout(play,300));
+  </script>
+</body>
+</html>
