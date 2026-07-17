@@ -469,8 +469,8 @@ const FX_TRACKS = {
     { p: 0.75, o: 0.42, s: 1.13, r: 0.122 },
     { p: 1.00, o: 0,    s: 1.27, r: 0.157 },
   ] },
-  arrow: { size: 56, speed: 1.5 },   // 弓箭：非关键帧轨道，仅弹道贴图尺寸+飞行速度倍率（rt48 与枪芒拉开：小而快 vs 大而慢）
-  hoof: { dur: 1000, size: 94, rotMode: "none", frames: [
+  arrow: { size: 106, speed: 1.2 },   // rt50 用户调校场三轮定版
+  hoof: { dur: 1000, size: 98, rotMode: "none", frames: [   // rt50 用户调校场三轮定版
     { p: 0.00, o: 0,    x: -28, y: 22,  s: 0.72 },
     { p: 0.08, o: 0,    x: -28, y: 22,  s: 0.72 },
     { p: 0.27, o: 0.78, x: -8,  y: 5,   s: 0.94 },
@@ -1349,7 +1349,7 @@ function unitActRT(u) {
   return "idle";
 }
 // 各动作的冷却间隔(ms)
-const RT_DELAY = { heroskill: 1500, skill: 1400, attack: 1300, heal: 1250, move: 1350, stun: 900, idle: 420 };   // attack=rt47 调校场二轮定版
+const RT_DELAY = { heroskill: 1500, skill: 1400, attack: 1650, heal: 1250, move: 1350, stun: 900, idle: 420 };   // attack=rt50 调校场三轮定版
 function actDelay(u, kind) {
   let d = RT_DELAY[kind] || 800;
   if (u.side === "foe" && kind === "move") {
