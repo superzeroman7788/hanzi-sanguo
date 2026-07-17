@@ -469,6 +469,7 @@ const FX_TRACKS = {
     { p: 0.75, o: 0.42, s: 1.13, r: 0.122 },
     { p: 1.00, o: 0,    s: 1.27, r: 0.157 },
   ] },
+  arrow: { size: 56, speed: 1.5 },   // 弓箭：非关键帧轨道，仅弹道贴图尺寸+飞行速度倍率（rt48 与枪芒拉开：小而快 vs 大而慢）
   hoof: { dur: 1000, size: 94, rotMode: "none", frames: [
     { p: 0.00, o: 0,    x: -28, y: 22,  s: 0.72 },
     { p: 0.08, o: 0,    x: -28, y: 22,  s: 0.72 },
@@ -978,7 +979,7 @@ function shootArrow(att, tgt, mult) {
   const now = performance.now();
   projectiles.push({
     x0: att.col, y0: att.row, x1: tgt.col, y1: tgt.row, side: att.side,
-    born: now, dur: 90 * dist(att, tgt) + 60, done: false,
+    born: now, dur: (90 * dist(att, tgt) + 60) / (FX_TRACKS.arrow.speed || 1), done: false,
     onHit: () => dealDamage(att, tgt, mult, { ranged: true }),
   });
   SND.bow();
@@ -1275,6 +1276,9 @@ function unitActRT(u) {
       if (adj) {
         faceTo(u, adj.col, adj.row);
         u.state = "attack"; u.animStart = performance.now();
+        // 骑攻击专属：蹄击踏向目标（rt48 用户问"骑的攻击是啥"——此前攻击无特效只有移动蹄尘）
+        spawnDoodle("hoof", u.x * TILE + TILE / 2, u.y * TILE + TILE / 2,
+          Math.sign(adj.col - u.col) * 0.8, (Math.sign(adj.row - u.row) || -1) * 0.8);
         dealDamage(u, adj, 1);
         if (adj.ranged) { counterTag(adj, "拦截！", "#4a7a5a"); SND.counter(); hitstop(85); }   // 骑截远程：克制顿帧
         gainRage(u, 26);
@@ -3466,8 +3470,9 @@ function drawProjectiles(now) {
       ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI * 2); ctx.fill();
     } else if (p.side === "me" && fx2.arrow && fx2.arrow.ready) { // 水墨箭矢=我方专属（rt46 用户裁决：敌方特效全黑分不清，敌弩用程序浅色小箭）
       ctx.globalAlpha *= t < 0.12 ? t / 0.12 : (t > 0.82 ? (1 - t) / 0.18 : 1);
-      if (fx2.arrow.halo) { ctx.globalAlpha *= 0.55; ctx.drawImage(fx2.arrow.halo, -38, -38, 76, 76); ctx.globalAlpha /= 0.55; }
-      ctx.drawImage(fx2.arrow.img, -34, -34, 68, 68);
+      const asz = FX_TRACKS.arrow.size, ah = asz * 1.12;
+      if (fx2.arrow.halo) { ctx.globalAlpha *= 0.55; ctx.drawImage(fx2.arrow.halo, -ah / 2, -ah / 2, ah, ah); ctx.globalAlpha /= 0.55; }
+      ctx.drawImage(fx2.arrow.img, -asz / 2, -asz / 2, asz, asz);
     } else {                                // 普通箭矢
       ctx.strokeStyle = "#e8d9b0"; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(-8, 0); ctx.lineTo(6, 0); ctx.stroke();

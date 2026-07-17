@@ -60,6 +60,18 @@
       { label: "大小", unit: "px", min: 60, max: 200, step: 4,
         get: () => FX_TRACKS.stab.size, set: v => FX_TRACKS.stab.size = v },
     ] },
+    { g: "弓箭 arrow", items: [
+      { label: "大小", unit: "px", min: 30, max: 130, step: 2,
+        get: () => FX_TRACKS.arrow.size, set: v => FX_TRACKS.arrow.size = v },
+      { label: "箭速", unit: "x", min: 0.5, max: 3, step: 0.1,
+        get: () => FX_TRACKS.arrow.speed, set: v => FX_TRACKS.arrow.speed = v },
+    ] },
+    { g: "蹄击 hoof（骑移动+攻击）", items: [
+      { label: "时长", unit: "ms", min: 300, max: 1800, step: 50,
+        get: () => FX_TRACKS.hoof.dur, set: v => FX_TRACKS.hoof.dur = v },
+      { label: "大小", unit: "px", min: 50, max: 160, step: 4,
+        get: () => FX_TRACKS.hoof.size, set: v => FX_TRACKS.hoof.size = v },
+    ] },
     { g: "节奏", items: [
       { label: "攻击间隔", unit: "ms", min: 400, max: 2400, step: 50,
         get: () => RT_DELAY.attack, set: v => RT_DELAY.attack = v },
@@ -70,6 +82,7 @@
     return JSON.stringify({
       slash: { dur: FX_TRACKS.slash.dur, size: FX_TRACKS.slash.size },
       stab: { dur: FX_TRACKS.stab.dur, size: FX_TRACKS.stab.size },
+      arrow: { size: FX_TRACKS.arrow.size, speed: FX_TRACKS.arrow.speed },
       hoof: { dur: FX_TRACKS.hoof.dur, size: FX_TRACKS.hoof.size },
       attackDelay: RT_DELAY.attack,
     }, null, 2);
