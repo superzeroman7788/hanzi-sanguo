@@ -450,7 +450,7 @@ const FX_TRACKS = {
     { p: 0.88, o: 0,    x: 28,  sx: 1.075, sy: 0.94 },
     { p: 1.00, o: 0,    x: 28,  sx: 1.075, sy: 0.94 },
   ] },
-  stab: { dur: 550, size: 104, rotMode: "along", frames: [   // rt46 用户调校场定版
+  stab: { dur: 1800, size: 168, rotMode: "along", frames: [   // rt47 用户调校场二轮定版
     { p: 0.00, o: 0,    x: -42, sx: 0.08,  sy: 0.62 },
     { p: 0.08, o: 0,    x: -42, sx: 0.08,  sy: 0.62 },
     { p: 0.24, o: 0.46, x: -20, sx: 0.42,  sy: 0.78 },
@@ -460,7 +460,7 @@ const FX_TRACKS = {
     { p: 0.90, o: 0,    x: 42,  sx: 1.13,  sy: 0.84 },
     { p: 1.00, o: 0,    x: 42,  sx: 1.13,  sy: 0.84 },
   ] },
-  burst: { dur: 1000, size: 0, sizeBig: 112, sizeSmall: 86, rotMode: "free", frames: [
+  burst: { dur: 450, size: 0, sizeBig: 88, sizeSmall: 68, rotMode: "free", frames: [   // 贴图已下线；此为用户二轮参数备份，若回归即用
     { p: 0.00, o: 0,    s: 0.12, r: -0.21 },
     { p: 0.07, o: 0,    s: 0.12, r: -0.21 },
     { p: 0.24, o: 0.72, s: 0.58, r: -0.09 },
@@ -1347,7 +1347,7 @@ function unitActRT(u) {
   return "idle";
 }
 // 各动作的冷却间隔(ms)
-const RT_DELAY = { heroskill: 1500, skill: 1400, attack: 1150, heal: 1250, move: 1350, stun: 900, idle: 420 };   // attack=rt46 调校场定版
+const RT_DELAY = { heroskill: 1500, skill: 1400, attack: 1300, heal: 1250, move: 1350, stun: 900, idle: 420 };   // attack=rt47 调校场二轮定版
 function actDelay(u, kind) {
   let d = RT_DELAY[kind] || 800;
   if (u.side === "foe" && kind === "move") {
