@@ -402,6 +402,15 @@ const KF_CHARGE = [
   { t: 460, dx: -4,  rot: -0.05, sx: 0.97, sy: 1.02 },
   { t: 600, dx: 0,   rot: 0,     sx: 1,    sy: 1 },
 ];
+// 骑攻击：拉枪后摆→整牌横扫半圈→扫尾顿帧→回正（rt53 横扫AOE，与枪的纵向贯穿横纵正交）
+const KF_SWEEP = [
+  { t: 0,   dx: 0,  rot: 0,     sx: 1,    sy: 1 },
+  { t: 160, dx: -6, rot: -0.42, sx: 0.94, sy: 1.06 },
+  { t: 240, dx: 8,  rot: 0.55,  sx: 1.14, sy: 0.92 },
+  { t: 360, dx: 6,  rot: 0.5,   sx: 1.06, sy: 0.96 },
+  { t: 500, dx: -2, rot: -0.06, sx: 0.98, sy: 1.01 },
+  { t: 640, dx: 0,  rot: 0,     sx: 1,    sy: 1 },
+];
 // 受击：瞬间歪斜+顿住 → 回正过冲
 const KF_HIT = [
   { t: 0,   dy: 0, rot: 0 },
@@ -479,6 +488,15 @@ const FX_TRACKS = {
     { p: 1.00, o: 0,    s: 1.27, r: 0.157 },
   ] },
   arrow: { size: 106, speed: 1.2 },   // rt50 用户调校场三轮定版
+  sweep: { dur: 700, size: 150, rotMode: "perp", img: "slash", frames: [   // 骑横扫弧光：复用刀光贴图横掠身前
+    { p: 0.00, o: 0,    x: -55, sx: 0.5,  sy: 0.8 },
+    { p: 0.10, o: 0,    x: -55, sx: 0.5,  sy: 0.8 },
+    { p: 0.25, o: 0.5,  x: -30, sx: 0.75, sy: 0.9 },
+    { p: 0.42, o: 0.95, x: 10,  sx: 1.05, sy: 1 },
+    { p: 0.58, o: 0.85, x: 30,  sx: 1.1,  sy: 0.97 },
+    { p: 0.78, o: 0.35, x: 48,  sx: 1.12, sy: 0.94 },
+    { p: 1.00, o: 0,    x: 60,  sx: 1.12, sy: 0.9 },
+  ] },
   hoof: { dur: 1000, size: 98, rotMode: "none", frames: [   // rt50 用户调校场三轮定版
     { p: 0.00, o: 0,    x: -28, y: 22,  s: 0.72 },
     { p: 0.08, o: 0,    x: -28, y: 22,  s: 0.72 },
@@ -503,7 +521,7 @@ function fxKfAt(frames, t) {
 }
 // 按定版曲线播放特效贴图；预览页位移基于大舞台，这里按显示尺寸等比折算
 function drawFx2Kf(name, x, y, size, dirRot, t) {
-  const e = fx2[name], tr = FX_TRACKS[name];
+  const tr = FX_TRACKS[name], e = tr && fx2[tr.img || name];   // img 字段=复用他人贴图（sweep 用 slash）
   if (!e || !e.ready || !tr) return false;
   const k = fxKfAt(tr.frames, t);
   if (k.o <= 0.01) return true;
@@ -555,8 +573,9 @@ function spawnDoodle(kind, x, y, dirX, dirY) {
 }
 function drawWeaponDoodles(now) {
   weaponDoodles = weaponDoodles.filter(d => {
-    const tr = fx2[d.kind] && fx2[d.kind].ready && FX_TRACKS[d.kind];
-    return now - d.born < (tr ? tr.dur : 330);
+    const tr = FX_TRACKS[d.kind];
+    const im = tr && fx2[tr.img || d.kind];
+    return now - d.born < (tr && im && im.ready ? tr.dur : 330);
   });
   for (const d of weaponDoodles) {
     const rot2 = Math.atan2(d.dirY, d.dirX);
@@ -572,7 +591,7 @@ function drawWeaponDoodles(now) {
     ctx.strokeStyle = "#241811"; ctx.lineWidth = 2.6; ctx.lineCap = "round";
     ctx.translate(x, y);
     ctx.rotate(rot2);
-    if (d.kind === "slash") {          // 刀光：一道弯月弧
+    if (d.kind === "slash" || d.kind === "sweep") {   // 刀光/横扫兜底：一道弯月弧
       ctx.beginPath(); ctx.arc(-4, 0, 15, -1.15, 1.15); ctx.stroke();
       ctx.lineWidth = 1.2;
       ctx.beginPath(); ctx.arc(-7, 0, 15, -0.85, 0.85); ctx.stroke();
@@ -1278,20 +1297,25 @@ function unitActRT(u) {
       u.state = "stand"; return "idle";
     }
     if (mode === "rover") {          // 骑：只守内线(缓冲区+部署区)，敌人进内线才追杀
-      // 贴脸就还手（不限内线）——修"卒骑隔线对峙互不掉血"：追击锁内线，反击不锁
-      const adj = foes.filter(f => dist(u, f) <= 1).sort((a, b) => b.row - a.row)[0];
-      if (adj) {
-        faceTo(u, adj.col, adj.row);
+      // 贴脸就出手（不限内线）——rt53 横扫AOE：命中周围一圈（八方向，含斜角；全局 dist 是曼哈顿距离故单独判）
+      const adjAll = foes.filter(f => Math.max(Math.abs(f.col - u.col), Math.abs(f.row - u.row)) <= 1);
+      if (adjAll.length) {
+        const prime = adjAll.sort((a, b) => b.row - a.row)[0];
+        faceTo(u, prime.col, prime.row);
         u.state = "attack"; u.animStart = performance.now();
         SND.hoof();
-        // rt51：蹄印撤下（那是移动的语言），冲撞靠 KF_CHARGE 位移+撞击帧结算+目标重歪
         setTimeout(() => {
-          if (adj.state === "dead" || u.state === "dead") return;
-          spawnInkBurst((u.x + adj.x) / 2 * TILE + TILE / 2, (u.y + adj.y) / 2 * TILE + TILE / 2);
-          doShake(2.5);   // 撞击震屏
-          dealDamage(u, adj, 1, { heavy: true });
-          if (adj.ranged) { counterTag(adj, "拦截！", "#4a7a5a"); SND.counter(); hitstop(85); }   // 骑截远程：克制顿帧
-        }, 210);   // 伤害对齐撞击帧
+          if (u.state === "dead") return;
+          SND.slash();
+          spawnDoodle("sweep", u.x * TILE + TILE / 2, u.y * TILE + TILE / 2 - 10, 0, -1);
+          doShake(2.5);
+          for (const f of adjAll) {
+            if (f.state === "dead") continue;
+            dealDamage(u, f, sweepMult, { heavy: true });
+          }
+          const nu = adjAll.find(f => f.state !== "dead" && f.ranged);
+          if (nu) { counterTag(nu, "拦截！", "#4a7a5a"); SND.counter(); hitstop(85); }   // 扫到弩：克制顿帧
+        }, 240);   // 伤害对齐横扫扫过帧
         gainRage(u, 26);
         return "attack";
       }
@@ -1363,6 +1387,7 @@ function unitActRT(u) {
 }
 // 各动作的冷却间隔(ms)
 const RT_DELAY = { heroskill: 1500, skill: 1400, attack: 1650, heal: 1250, move: 1350, stun: 900, idle: 420 };   // attack=rt50 调校场三轮定版
+let sweepMult = 0.85;   // 骑横扫每目标伤害系数（rt53，调校场可调）
 function actDelay(u, kind) {
   let d = RT_DELAY[kind] || 800;
   if (u.side === "foe" && kind === "move") {
@@ -3076,7 +3101,7 @@ function drawTile(u, px, py, now, sizeBase) {
   let ox = 0, oy = 0, poseRot = 0, poseSx = 1, poseSy = 1;
   if (u.state === "attack") {
     const el = now - u.animStart;
-    const track = u.cls === "cavalry" ? KF_CHARGE : KF_SLASH;   // 骑=冲撞三节拍
+    const track = u.cls === "cavalry" ? KF_SWEEP : KF_SLASH;   // 骑=横扫三节拍（KF_CHARGE 留备用）
     const P = poseAt(track, el);
     const dirX = u.dir === "left" ? -1 : u.dir === "right" ? 1 : 0;
     const dirY = u.dir === "up" ? -1 : u.dir === "down" ? 1 : 0;

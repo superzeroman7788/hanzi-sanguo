@@ -2,13 +2,14 @@
 // 用真游戏代码跑"不死擂台"单挑对峙：这里调出来的参数就是游戏参数，零转译。
 // 流程：选场景 → 拖滑杆实时看效果 → 「复制参数」把 JSON 发给 Claude 固化进正式版。
 (function () {
-  const LAB = { me: null, foe: null, foeFight: true, scene: "dao" };
+  const LAB = { me: null, foes: [], foeFight: true, scene: "dao" };
 
+  // foes 可多个；pinned=钉住不行动（陪打靶，展示AOE用）
   const SCENES = {
-    dao:   { label: "刀 vs 卒", me: { id: "dao",   col: 2, row: 4 }, foe: { col: 2, row: 3 } },
-    qiang: { label: "枪 vs 卒", me: { id: "qiang", col: 2, row: 4 }, foe: { col: 2, row: 3 } },
-    gong:  { label: "弓 vs 卒", me: { id: "gong",  col: 2, row: 5 }, foe: { col: 2, row: 0 } },
-    qi:    { label: "骑 vs 卒", me: { id: "qi",    col: 2, row: 4 }, foe: { col: 2, row: 3 } },
+    dao:   { label: "刀vs卒", me: { id: "dao",   col: 2, row: 4 }, foes: [{ col: 2, row: 3 }] },
+    qiang: { label: "枪vs卒", me: { id: "qiang", col: 2, row: 4 }, foes: [{ col: 2, row: 3 }] },
+    gong:  { label: "弓vs卒", me: { id: "gong",  col: 2, row: 5 }, foes: [{ col: 2, row: 0 }] },
+    qi:    { label: "骑vs双卒", me: { id: "qi",  col: 2, row: 4 }, foes: [{ col: 2, row: 3 }, { col: 1, row: 3, pinned: true }] },
   };
 
   function clearStage() {
@@ -30,11 +31,17 @@
     const sc = SCENES[key];
     const cc = CLASS_CHARS.find(c => c.id === sc.me.id);
     const me = makeUnit(defOfClassChar(cc), "me", sc.me.col, sc.me.row);
-    const foe = makeUnit(defOfFoeType(FOE_TYPES[0]), "foe", sc.foe.col, sc.foe.row);
-    me.maxHp = me.hp = 9e6; foe.maxHp = foe.hp = 9e6;   // 不死擂台：只看手感不看数值
+    me.maxHp = me.hp = 9e6;   // 不死擂台：只看手感不看数值
     me.nextActAt = performance.now() + 500;
-    units.push(me, foe);
-    LAB.me = me; LAB.foe = foe;
+    units.push(me);
+    LAB.me = me;
+    LAB.foes = sc.foes.map(fc => {
+      const foe = makeUnit(defOfFoeType(FOE_TYPES[0]), "foe", fc.col, fc.row);
+      foe.maxHp = foe.hp = 9e6;
+      foe._pinned = !!fc.pinned;
+      units.push(foe);
+      return foe;
+    });
     applyFoeFight();
     refreshStats();
     document.querySelectorAll("#labPanel .sceneBtn").forEach(b =>
@@ -42,8 +49,7 @@
   }
 
   function applyFoeFight() {
-    if (!LAB.foe) return;
-    LAB.foe.nextActAt = LAB.foeFight ? performance.now() + 700 : 9e12;
+    for (const f of LAB.foes) f.nextActAt = (LAB.foeFight && !f._pinned) ? performance.now() + 700 : 9e12;
   }
 
   // ---------- 可调参数表（get/set 直连游戏内实参）----------
@@ -66,6 +72,14 @@
       { label: "箭速", unit: "x", min: 0.5, max: 3, step: 0.1,
         get: () => FX_TRACKS.arrow.speed, set: v => FX_TRACKS.arrow.speed = v },
     ] },
+    { g: "骑横扫 sweep", items: [
+      { label: "时长", unit: "ms", min: 300, max: 1600, step: 50,
+        get: () => FX_TRACKS.sweep.dur, set: v => FX_TRACKS.sweep.dur = v },
+      { label: "大小", unit: "px", min: 80, max: 240, step: 5,
+        get: () => FX_TRACKS.sweep.size, set: v => FX_TRACKS.sweep.size = v },
+      { label: "伤害系数", unit: "x", min: 0.5, max: 1.2, step: 0.05,
+        get: () => sweepMult, set: v => sweepMult = v },
+    ] },
     { g: "蹄尘 hoof（骑移动）", items: [
       { label: "时长", unit: "ms", min: 300, max: 1800, step: 50,
         get: () => FX_TRACKS.hoof.dur, set: v => FX_TRACKS.hoof.dur = v },
@@ -83,6 +97,7 @@
       slash: { dur: FX_TRACKS.slash.dur, size: FX_TRACKS.slash.size },
       stab: { dur: FX_TRACKS.stab.dur, size: FX_TRACKS.stab.size },
       arrow: { size: FX_TRACKS.arrow.size, speed: FX_TRACKS.arrow.speed },
+      sweep: { dur: FX_TRACKS.sweep.dur, size: FX_TRACKS.sweep.size, mult: sweepMult },
       hoof: { dur: FX_TRACKS.hoof.dur, size: FX_TRACKS.hoof.size },
       attackDelay: RT_DELAY.attack,
     }, null, 2);
