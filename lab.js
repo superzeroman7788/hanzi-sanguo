@@ -10,6 +10,7 @@
     qiang: { label: "枪vs卒", me: { id: "qiang", col: 2, row: 4 }, foes: [{ col: 2, row: 3 }] },
     gong:  { label: "弓vs卒", me: { id: "gong",  col: 2, row: 5 }, foes: [{ col: 2, row: 0 }] },
     qi:    { label: "骑vs双卒", me: { id: "qi",  col: 2, row: 4 }, foes: [{ col: 2, row: 3 }, { col: 1, row: 3, pinned: true }] },
+    yi:    { label: "医vs卒群", me: { id: "yi",  col: 2, row: 4 }, foes: [{ col: 1, row: 2, pinned: true }, { col: 2, row: 2 }, { col: 2, row: 1, pinned: true }] },
   };
 
   function clearStage() {
