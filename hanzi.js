@@ -1288,6 +1288,7 @@ function unitActRT(u) {
         setTimeout(() => {
           if (adj.state === "dead" || u.state === "dead") return;
           spawnInkBurst((u.x + adj.x) / 2 * TILE + TILE / 2, (u.y + adj.y) / 2 * TILE + TILE / 2);
+          doShake(2.5);   // 撞击震屏
           dealDamage(u, adj, 1, { heavy: true });
           if (adj.ranged) { counterTag(adj, "拦截！", "#4a7a5a"); SND.counter(); hitstop(85); }   // 骑截远程：克制顿帧
         }, 210);   // 伤害对齐撞击帧
@@ -3855,6 +3856,18 @@ function showStartBanner() {
 }
 
 // ---------- 启动 ----------
+// 版本水印：从 script src 读 v=，挂顶栏小字——真机确认没吃缓存用（rt52）
+(() => {
+  const src = (document.querySelector('script[src*="hanzi.js"]') || {}).src || "";
+  const m = src.match(/v=(\w+)/);
+  const tb = document.getElementById("topbar");
+  if (m && tb) {
+    const s = document.createElement("span");
+    s.textContent = m[1];
+    s.style.cssText = "font-size:9px;color:#8a7550;opacity:.75;align-self:center";
+    tb.appendChild(s);
+  }
+})();
 loadAssets().then(() => {
   waveTotal = wavesFor(round); wave = 0;
   spawnQueue = []; nextSpawnAt = 0; nextWaveAt = 0;
