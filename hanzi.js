@@ -961,9 +961,7 @@ function dealDamage(att, tgt, mult, opt = {}) {
   dmg = Math.round(dmg);
   tgt.hp -= dmg;
   tgt.flashUntil = performance.now() + 130;
-  if (phase === "fight" && tgt.col != null) {
-    spawnInkSpecks(tgt.x * TILE + TILE / 2, tgt.y * TILE + TILE / 2, crit ? 8 : 5);   // 受击=墨的语言（rt49：随机墨渍/受击碎纸删除，碎纸只留给死亡）
-  }
+  // rt54 对照赵阿纠正：墨迹属于死亡不属于受伤——受击反馈=姿态歪斜+白闪+飘字+音效，不出墨
   // 受击后仰挤压；我方刀兵=格挡（幅度小回弹硬+盾光+锵声）
   const isBlock = tgt.side === "me" && tgt.cls === "infantry" && !tgt.hero;
   tgt.hitAnim = { born: performance.now(), dir: Math.sign(tgt.row - att.row) || (tgt.side === "me" ? 1 : -1), block: isBlock, heavy: !!opt.heavy };
@@ -976,8 +974,10 @@ function dealDamage(att, tgt, mult, opt = {}) {
   SND.hit(crit || isHeroHit);
   if (tgt.hp <= 0) {
     tgt.hp = 0; tgt.state = "dead"; tgt.deadAt = performance.now();
-    SND.kill();   // 兵符碎裂
-    spawnShreds(tgt, 7);   // 死亡：整牌裂成碎片散落
+    SND.kill();
+    // rt54 死亡=墨迹爆散（赵阿配方校正：字是墨写的，死时墨被打散；碎纸退役）
+    spawnInkSpecks(tgt.x * TILE + TILE / 2, tgt.y * TILE + TILE / 2, 14);
+    spawnInkBurst(tgt.x * TILE + TILE / 2, tgt.y * TILE + TILE / 2, true);
     // 击杀掉金币（塔防式战场经济）
     if (tgt.side === "foe" && att.side === "me" && phase === "fight") {
       gold += 1;
@@ -1243,7 +1243,6 @@ function unitActRT(u) {
             SND.slash();
             spawnDoodle("slash", u.x * TILE + TILE / 2, u.y * TILE + TILE / 2 - 14, 0, -1);
             dealDamage(u, tgt, 1);
-            spawnInkBurst((u.x + tgt.x) / 2 * TILE + TILE / 2, (u.y + tgt.y) / 2 * TILE + TILE / 2);
           }
         }, 190);
         gainRage(u, 26);
@@ -1444,7 +1443,7 @@ function runBattleStep(now) {
         if (v.side !== m.side) {
           v.hp -= Math.max(2, Math.round(m.pow * 0.7));
           popup(v, "毒", "#7a5a9a");
-          if (v.hp <= 0) { v.hp = 0; v.state = "dead"; v.deadAt = now; if (v.side === "foe") gold += 1; }
+          if (v.hp <= 0) { v.hp = 0; v.state = "dead"; v.deadAt = now; spawnInkSpecks(v.x * TILE + TILE / 2, v.y * TILE + TILE / 2, 10); if (v.side === "foe") gold += 1; }
         } else if (v.hp < v.maxHp) {
           v.hp = Math.min(v.maxHp, v.hp + Math.max(2, Math.round(m.pow * 0.5)));
           popup(v, "+" + Math.max(2, Math.round(m.pow * 0.5)), "#5a9a52");
@@ -1690,7 +1689,8 @@ function breach(u) {
     for (const v of alive("foe")) {
       if (v.col !== col) continue;
       v.hp = 0; v.state = "dead"; v.deadAt = performance.now();
-      spawnShreds(v, 5);
+      spawnInkSpecks(v.x * TILE + TILE / 2, v.y * TILE + TILE / 2, 10);
+      spawnInkBurst(v.x * TILE + TILE / 2, v.y * TILE + TILE / 2, true);
     }
     popups.push({ x: col, y: ROWS - 2, text: "滚木出击！", color: "#8a5a10", born: performance.now(), big: true });
     setStatus(`第${col + 1}路城墙破口！点缺口花${WALL_FIX_COST}金可修复`);
