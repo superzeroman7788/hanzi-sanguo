@@ -21,10 +21,17 @@ h1 { margin:0; font:700 20px/1.2 "Kaiti SC","STKaiti",serif; letter-spacing:.12e
 .effect.arrow { left:-3%; top:0; width:100%; transform-origin:16% 50%; }
 .effect.burst { left:4%; top:4%; width:92%; transform-origin:50% 50%; }
 .effect.hoof { left:2%; top:3%; width:96%; transform-origin:48% 66%; }
+.effect.medicine-mist { left:7%; top:7%; width:86%; transform-origin:50% 52%; mix-blend-mode:normal; }
+.mist-halo { z-index:1; opacity:0; filter:blur(9px); }
+.mist-main { z-index:2; }
+.mist-wisp { z-index:3; opacity:0; filter:blur(2px); }
 .playing .stab { animation:stab var(--time) cubic-bezier(.12,.7,.18,1) both; }
 .playing .arrow { animation:arrow var(--time) cubic-bezier(.18,.72,.2,1) both; }
 .playing .burst { animation:burst var(--time) cubic-bezier(.12,.72,.18,1) both; }
 .playing .hoof { animation:hoof var(--time) cubic-bezier(.2,.62,.25,1) both; }
+.playing .mist-halo { animation:mist-halo var(--time) cubic-bezier(.18,.66,.2,1) both; }
+.playing .mist-main { animation:mist-main var(--time) cubic-bezier(.16,.7,.2,1) both; }
+.playing .mist-wisp { animation:mist-wisp var(--time) cubic-bezier(.18,.66,.24,1) both; }
 @keyframes stab {
   0%,8%{opacity:0;transform:translateX(-42px) scaleX(.08) scaleY(.62);filter:blur(1.5px)}
   24%{opacity:.46;transform:translateX(-20px) scaleX(.42) scaleY(.78)}
@@ -56,6 +63,27 @@ h1 { margin:0; font:700 20px/1.2 "Kaiti SC","STKaiti",serif; letter-spacing:.12e
   58%{opacity:.82;transform:translate(10px,-5px) scale(1)}
   78%{opacity:.32;transform:translate(23px,-17px) scale(1.08);filter:blur(.8px)}
   100%{opacity:0;transform:translate(36px,-30px) scale(1.15);filter:blur(2px)}
+}
+@keyframes mist-halo {
+  0%,5%{opacity:0;transform:scale(.48) rotate(-5deg);filter:blur(13px)}
+  26%{opacity:.1;transform:scale(.88) rotate(-2deg);filter:blur(9px)}
+  48%{opacity:.16;transform:scale(1.08) rotate(1deg);filter:blur(8px)}
+  72%{opacity:.1;transform:translateY(-5px) scale(1.18) rotate(3deg);filter:blur(11px)}
+  100%{opacity:0;transform:translateY(-18px) scale(1.32) rotate(5deg);filter:blur(16px)}
+}
+@keyframes mist-main {
+  0%,5%{opacity:0;transform:translateY(15px) scale(.48) rotate(-4deg);filter:blur(5px) saturate(.78)}
+  24%{opacity:.68;transform:translateY(5px) scale(.82) rotate(-2deg);filter:blur(1.5px) saturate(.86)}
+  43%{opacity:.95;transform:translateY(0) scale(1.01) rotate(0);filter:blur(0) saturate(.9) contrast(1.04)}
+  58%{opacity:.88;transform:translateY(-2px) scale(.98) rotate(1deg);filter:blur(.2px) saturate(.88)}
+  75%{opacity:.55;transform:translateY(-7px) scale(1.08) rotate(2deg);filter:blur(1.3px) saturate(.82)}
+  100%{opacity:0;transform:translateY(-24px) scale(1.2) rotate(4deg);filter:blur(5px) saturate(.7)}
+}
+@keyframes mist-wisp {
+  0%,22%{opacity:0;transform:translate(-5px,10px) scale(.68) rotate(3deg);filter:blur(4px)}
+  42%{opacity:.08;transform:translate(1px,-1px) scale(.92) rotate(5deg);filter:blur(2px)}
+  64%{opacity:.06;transform:translate(7px,-10px) scale(1.04) rotate(7deg);filter:blur(3px)}
+  100%{opacity:0;transform:translate(16px,-34px) scale(1.14) rotate(10deg);filter:blur(7px)}
 }
 .controls { display:grid; grid-template-columns:1.35fr 1fr; gap:8px; margin-top:12px; }
 button { min-height:46px; border:1px solid #766646; border-radius:10px; background:#2a2821; color:#d7c8aa; font:600 13px/1 system-ui,sans-serif; cursor:pointer; }

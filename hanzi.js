@@ -425,17 +425,23 @@ const KF_HIT = [
 const fx2 = {};
 ["slash", "stab", "burst", "arrow", "hoof", "heal"].forEach(name => {
   fx2[name] = { ready: false };
-  loadKeyedImage(`assets/effects/${name}.png`).then(c => {
+  const file = name === "heal" ? "medicine-mist" : name;   // 药雾按用户交付文件名挂载
+  loadKeyedImage(`assets/effects/${file}.png`).then(c => {
     if (!c) return;
     // 白底抠透明（loadKeyedImage 只抠纯黑，这里再抠亮色背景）
+    // rt56 修：图自带透明通道则跳过——浅色素材(药雾)会被白抠误杀
     const g = c.getContext("2d");
     const d = g.getImageData(0, 0, c.width, c.height), p = d.data;
-    for (let i = 0; i < p.length; i += 4) {
-      const lum = 0.3 * p[i] + 0.59 * p[i + 1] + 0.11 * p[i + 2];
-      if (lum > 232) p[i + 3] = 0;
-      else if (lum > 205) p[i + 3] = Math.min(p[i + 3], Math.round(255 * (232 - lum) / 27));
+    let transparent = 0;
+    for (let i = 3; i < p.length; i += 4000) if (p[i] < 10) transparent++;
+    if (transparent < 50) {
+      for (let i = 0; i < p.length; i += 4) {
+        const lum = 0.3 * p[i] + 0.59 * p[i + 1] + 0.11 * p[i + 2];
+        if (lum > 232) p[i + 3] = 0;
+        else if (lum > 205) p[i + 3] = Math.min(p[i + 3], Math.round(255 * (232 - lum) / 27));
+      }
+      g.putImageData(d, 0, 0);
     }
-    g.putImageData(d, 0, 0);
     // 预烤纸色剪影衬光：黑墨特效叠在玄铁敌盘上时用它垫底保对比，宣纸底上近乎隐形
     const h = document.createElement("canvas");
     h.width = c.width; h.height = c.height;
@@ -509,8 +515,8 @@ const FX_TRACKS = {
     { p: 1.00, o: 0,    x: 36,  y: -30, s: 1.15 },
   ] },
 };
-function fxKfAt(frames, t) {
-  t = 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 2.2);   // 整体缓出≈预览页的 cubic-bezier
+function fxKfAt(frames, t, raw) {
+  if (!raw) t = 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 2.2);   // 整体缓出≈预览页的 cubic-bezier；raw=调用方自管节奏
   let a = frames[0], b = frames[frames.length - 1];
   for (let i = 1; i < frames.length; i++) {
     if (t <= frames[i].p) { a = frames[i - 1]; b = frames[i]; break; }
@@ -546,30 +552,91 @@ function drawFx2Kf(name, x, y, size, dirRot, t) {
   ctx.restore();
   return true;
 }
-// 药雾可视化（rt55 之前完全没画，医的存在感为零）：heal.png 贴图优先，缺省程序青绿雾兜底；呼吸+缓旋
+// 药雾可视化：用户 12 号预览页定版的三层叠雾（底晕halo/主体main/余丝wisp），
+// 曲线随雾生命周期 0..1 播放——中心聚起→呼吸扩散→上浮消散；缺贴图走程序青绿雾兜底
+const MIST_LAYERS = {
+  halo: [
+    { p: 0.00, o: 0,    s: 0.48, r: -0.087 },
+    { p: 0.05, o: 0,    s: 0.48, r: -0.087 },
+    { p: 0.26, o: 0.10, s: 0.88, r: -0.035 },
+    { p: 0.48, o: 0.16, s: 1.08, r: 0.017 },
+    { p: 0.72, o: 0.10, y: -5,  s: 1.18, r: 0.052 },
+    { p: 1.00, o: 0,    y: -18, s: 1.32, r: 0.087 },
+  ],
+  main: [
+    { p: 0.00, o: 0,    y: 15,  s: 0.48, r: -0.07 },
+    { p: 0.05, o: 0,    y: 15,  s: 0.48, r: -0.07 },
+    { p: 0.24, o: 0.68, y: 5,   s: 0.82, r: -0.035 },
+    { p: 0.43, o: 0.95, y: 0,   s: 1.01, r: 0 },
+    { p: 0.58, o: 0.88, y: -2,  s: 0.98, r: 0.017 },
+    { p: 0.75, o: 0.55, y: -7,  s: 1.08, r: 0.035 },
+    { p: 1.00, o: 0,    y: -24, s: 1.20, r: 0.07 },
+  ],
+  wisp: [
+    { p: 0.00, o: 0,    x: -5, y: 10,  s: 0.68, r: 0.052 },
+    { p: 0.22, o: 0,    x: -5, y: 10,  s: 0.68, r: 0.052 },
+    { p: 0.42, o: 0.08, x: 1,  y: -1,  s: 0.92, r: 0.087 },
+    { p: 0.64, o: 0.06, x: 7,  y: -10, s: 1.04, r: 0.122 },
+    { p: 1.00, o: 0,    x: 16, y: -34, s: 1.14, r: 0.175 },
+  ],
+};
+// 底晕层：预烤一张模糊小图（每帧 ctx.filter 太贵且 Safari 兼容存疑）
+function mistHaloImg(e) {
+  if (!e.blurC) {
+    const c = document.createElement("canvas");
+    c.width = 256; c.height = 256;
+    const g = c.getContext("2d");
+    if ("filter" in g) g.filter = "blur(6px)";
+    g.globalAlpha = 0.9;
+    g.drawImage(e.img, 10, 10, 236, 236);
+    e.blurC = c;
+  }
+  return e.blurC;
+}
+// 持续区域标记的节奏改译：绽放600ms(曲线0→43%)→中段呼吸驻留(43%~58%往复)→收尾900ms消散(58%→100%)
+// ——预览页是 2.15s 一次性演出，雾在场上要当奶区路标，饱满期必须占大头
+function mistCurveT(m, now) {
+  const el = now - m.born;
+  const IN = 600, OUT = 900;
+  if (el < IN) return (el / IN) * 0.43;
+  const left = m.until - now;
+  if (left < OUT) return 1 - (left / OUT) * (1 - 0.58);
+  return 0.43 + ((Math.sin((el - IN) / 520) + 1) / 2) * 0.15;
+}
 function drawMistsFx(now) {
   for (const m of mists) {
     if (now >= m.until) continue;
     const cx = m.col * TILE + TILE / 2, cy = m.row * TILE + TILE / 2;
-    const life = (now - m.born) / (m.until - m.born);
-    const a = Math.min(1, life * 6) * Math.min(1, (1 - life) * 4) * 0.85;   // 快起缓收
-    const S = TILE * 2.7 * (1 + Math.sin(now / 420) * 0.05);
+    const life = mistCurveT(m, now);
     const e = fx2.heal;
-    ctx.save();
-    ctx.globalAlpha = Math.max(0, a);
     if (e && e.ready) {
-      ctx.translate(cx, cy);
-      ctx.rotate(Math.sin(now / 1300) * 0.08);
-      ctx.drawImage(e.img, -S / 2, -S / 2, S, S);
+      const S = TILE * 3.0, f = S / 450;   // 预览页舞台 ~450px，位移等比折算
+      for (const name of ["halo", "main", "wisp"]) {
+        const k = fxKfAt(MIST_LAYERS[name], life, true);
+        if (k.o <= 0.01) continue;
+        const img = name === "halo" ? mistHaloImg(e) : e.img;
+        const sz = S * (name === "halo" ? 1.15 : 1);
+        ctx.save();
+        ctx.globalAlpha = k.o;
+        ctx.translate(cx + (k.x || 0) * f, cy + (k.y || 0) * f);
+        ctx.rotate(k.r);
+        ctx.scale(k.sx, k.sy);
+        ctx.drawImage(img, -sz / 2, -sz / 2, sz, sz);
+        ctx.restore();
+      }
     } else {
+      const a = Math.min(1, life * 6) * Math.min(1, (1 - life) * 4) * 0.85;
+      const S = TILE * 2.7 * (1 + Math.sin(now / 420) * 0.05);
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, a);
       const g = ctx.createRadialGradient(cx, cy, 8, cx, cy, S / 2);
       g.addColorStop(0, "rgba(116,162,132,.42)");
       g.addColorStop(0.7, "rgba(116,162,132,.16)");
       g.addColorStop(1, "rgba(116,162,132,0)");
       ctx.fillStyle = g;
       ctx.beginPath(); ctx.arc(cx, cy, S / 2, 0, 7); ctx.fill();
+      ctx.restore();
     }
-    ctx.restore();
   }
 }
 // 受击墨散：字的墨被打散——细小墨点从牌缘飞出 + 笔画短暂发毛
