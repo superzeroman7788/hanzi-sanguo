@@ -10,7 +10,7 @@
     qiang: { label: "枪vs卒", me: { id: "qiang", col: 2, row: 4 }, foes: [{ col: 2, row: 3 }] },
     gong:  { label: "弓vs卒", me: { id: "gong",  col: 2, row: 5 }, foes: [{ col: 2, row: 0 }] },
     qi:    { label: "骑vs双卒", me: { id: "qi",  col: 2, row: 4 }, foes: [{ col: 2, row: 3 }, { col: 1, row: 3, pinned: true }] },
-    yi:    { label: "医vs卒群", me: { id: "yi",  col: 2, row: 4 }, foes: [{ col: 1, row: 2, pinned: true }, { col: 2, row: 2 }, { col: 2, row: 1, pinned: true }] },
+    yi:    { label: "刀医续航", me: { id: "yi",  col: 2, row: 5 }, allies: [{ id: "dao", col: 2, row: 4 }], foes: [{ col: 2, row: 3, atkM: 5 }] },
   };
 
   function clearStage() {
@@ -36,10 +36,18 @@
     me.nextActAt = performance.now() + 500;
     units.push(me);
     LAB.me = me;
+    // 陪练友军：正常血量（要能掉血，奶才看得见）
+    for (const ac of (sc.allies || [])) {
+      const acc = CLASS_CHARS.find(c => c.id === ac.id);
+      const ally = makeUnit(defOfClassChar(acc), "me", ac.col, ac.row);
+      ally.nextActAt = performance.now() + 600;
+      units.push(ally);
+    }
     LAB.foes = sc.foes.map(fc => {
       const foe = makeUnit(defOfFoeType(FOE_TYPES[0]), "foe", fc.col, fc.row);
       foe.maxHp = foe.hp = 9e6;
       foe._pinned = !!fc.pinned;
+      if (fc.atkM) foe.atk = Math.round(foe.atk * fc.atkM);   // 场景专用增伤（刀医续航：让奶有存在感）
       units.push(foe);
       return foe;
     });
@@ -87,6 +95,14 @@
       { label: "大小", unit: "px", min: 50, max: 160, step: 4,
         get: () => FX_TRACKS.hoof.size, set: v => FX_TRACKS.hoof.size = v },
     ] },
+    { g: "医药雾（纯奶）", items: [
+      { label: "奶跳间隔", unit: "ms", min: 600, max: 2400, step: 100,
+        get: () => MIST_TICK, set: v => MIST_TICK = v },
+      { label: "每跳奶量", unit: "x", min: 0.3, max: 1.5, step: 0.05,
+        get: () => MIST_HEAL, set: v => MIST_HEAL = v },
+      { label: "雾持续", unit: "ms", min: 1500, max: 6000, step: 250,
+        get: () => MIST_DUR, set: v => MIST_DUR = v },
+    ] },
     { g: "节奏", items: [
       { label: "攻击间隔", unit: "ms", min: 400, max: 2400, step: 50,
         get: () => RT_DELAY.attack, set: v => RT_DELAY.attack = v },
@@ -100,6 +116,7 @@
       arrow: { size: FX_TRACKS.arrow.size, speed: FX_TRACKS.arrow.speed },
       sweep: { dur: FX_TRACKS.sweep.dur, size: FX_TRACKS.sweep.size, mult: sweepMult },
       hoof: { dur: FX_TRACKS.hoof.dur, size: FX_TRACKS.hoof.size },
+      mist: { tick: MIST_TICK, heal: MIST_HEAL, dur: MIST_DUR },
       attackDelay: RT_DELAY.attack,
     }, null, 2);
   }

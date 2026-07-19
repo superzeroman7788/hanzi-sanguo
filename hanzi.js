@@ -43,6 +43,8 @@ const CLASSES = {
 };
 // 药雾区域效果 {col,row,born,until,side}
 let mists = [];
+// rt55 纯奶定版：频次是奶量上限的主阀（用户判断）——低频大口，看得清也压得住
+let MIST_TICK = 1200, MIST_HEAL = 0.8, MIST_DUR = 3200;
 let nextMistTickAt = 0;
 
 // ---------- 字池 ----------
@@ -92,7 +94,7 @@ const FOE_TYPES = [
   { id: "zu",   char: "卒", cls: "infantry", cost: 1, hpB: 70,  atkB: 10, minR: 1, tip: "稳步推进——基础防线即可" },
   { id: "ma",   char: "马", cls: "cavalry",  cost: 2, hpB: 70,  atkB: 9,  minR: 2, tip: "高速冲线——前排刀兵能挡住" },
   { id: "dun",  char: "盾", cls: "infantry", cost: 2, hpB: 120, atkB: 8,  minR: 3, shield: true, tip: "盾挡箭矢——枪兵贯穿可破盾" },
-  { id: "xiao", char: "校", cls: "infantry", cost: 3, hpB: 200, atkB: 12, minR: 4, slow: true, tip: "血厚慢推——毒雾加集火" },
+  { id: "xiao", char: "校", cls: "infantry", cost: 3, hpB: 200, atkB: 12, minR: 4, slow: true, tip: "血厚慢推——刀兵顶住医师续航，或弓枪集火" },
   { id: "qi2",  char: "旗", cls: "priest",   cost: 3, hpB: 60,  atkB: 5,  minR: 4, banner: true, tip: "旗令强化同路敌军——弓兵优先点杀" },
   { id: "nu",   char: "弩", cls: "archer",   cost: 3, hpB: 50,  atkB: 11, minR: 5, ranged: true, tip: "远程消耗前排——骑兵会自动突入" },
 ];
@@ -421,7 +423,7 @@ const KF_HIT = [
 ];
 // 水墨特效贴图（AI生成单帧，程序管运动）：白底自动抠透明，未提供则程序画兜底
 const fx2 = {};
-["slash", "stab", "burst", "arrow", "hoof"].forEach(name => {
+["slash", "stab", "burst", "arrow", "hoof", "heal"].forEach(name => {
   fx2[name] = { ready: false };
   loadKeyedImage(`assets/effects/${name}.png`).then(c => {
     if (!c) return;
@@ -543,6 +545,32 @@ function drawFx2Kf(name, x, y, size, dirRot, t) {
   ctx.drawImage(e.img, -size / 2, -size / 2, size, size);
   ctx.restore();
   return true;
+}
+// 药雾可视化（rt55 之前完全没画，医的存在感为零）：heal.png 贴图优先，缺省程序青绿雾兜底；呼吸+缓旋
+function drawMistsFx(now) {
+  for (const m of mists) {
+    if (now >= m.until) continue;
+    const cx = m.col * TILE + TILE / 2, cy = m.row * TILE + TILE / 2;
+    const life = (now - m.born) / (m.until - m.born);
+    const a = Math.min(1, life * 6) * Math.min(1, (1 - life) * 4) * 0.85;   // 快起缓收
+    const S = TILE * 2.7 * (1 + Math.sin(now / 420) * 0.05);
+    const e = fx2.heal;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, a);
+    if (e && e.ready) {
+      ctx.translate(cx, cy);
+      ctx.rotate(Math.sin(now / 1300) * 0.08);
+      ctx.drawImage(e.img, -S / 2, -S / 2, S, S);
+    } else {
+      const g = ctx.createRadialGradient(cx, cy, 8, cx, cy, S / 2);
+      g.addColorStop(0, "rgba(116,162,132,.42)");
+      g.addColorStop(0.7, "rgba(116,162,132,.16)");
+      g.addColorStop(1, "rgba(116,162,132,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(cx, cy, S / 2, 0, 7); ctx.fill();
+    }
+    ctx.restore();
+  }
 }
 // 受击墨散：字的墨被打散——细小墨点从牌缘飞出 + 笔画短暂发毛
 let inkSpecks = [];
@@ -1279,16 +1307,17 @@ function unitActRT(u) {
       }
       u.state = "stand"; return "idle";
     }
-    if (mode === "mist") {           // 医：向敌人最密集处投药雾（敌中毒/友回血）
-      if (foes.length && !mists.some(m => m.side === "me" && performance.now() < m.until)) {
+    if (mode === "mist") {           // 医：纯奶（rt55 定版）——向残血友军密集处投药雾，只奶不毒
+      const hurt = alive("me").filter(a => a !== u && a.hp < a.maxHp);
+      if (hurt.length && !mists.some(m => m.side === "me" && performance.now() < m.until)) {
         let best = null, bestN = -1;
-        for (const f of foes) {
-          const n = foes.filter(g => Math.abs(g.col - f.col) <= 1 && Math.abs(g.row - f.row) <= 1).length;
-          if (n > bestN) { bestN = n; best = f; }
+        for (const a of hurt) {
+          const n = hurt.filter(g => Math.abs(g.col - a.col) <= 1 && Math.abs(g.row - a.row) <= 1).length;
+          if (n > bestN) { bestN = n; best = a; }
         }
         faceTo(u, best.col, best.row);
         u.state = "attack"; u.animStart = performance.now();
-        mists.push({ col: best.col, row: best.row, born: performance.now(), until: performance.now() + 3200, side: "me", pow: u.atk });
+        mists.push({ col: best.col, row: best.row, born: performance.now(), until: performance.now() + MIST_DUR, side: "me", pow: u.atk });
         SND.mist();
         gainRage(u, 20);
         return "skill";
@@ -1433,20 +1462,17 @@ function runBattleStep(now) {
     if (!nextWaveAt) nextWaveAt = now + (round >= 2 ? 1500 : 3600);   // 预告本身是喘息
     if (now >= nextWaveAt) { nextWaveAt = 0; queueWave(); }
   }
-  // 药雾结算：每600ms一跳，雾区(±1格)敌中毒/友回血
+  // 药雾结算（rt55 纯奶）：每 MIST_TICK 一跳，雾区(±1格)只奶友军
   if (now >= nextMistTickAt) {
-    nextMistTickAt = now + 600;
+    nextMistTickAt = now + MIST_TICK;
     mists = mists.filter(m => now < m.until);
     for (const m of mists) {
       for (const v of alive()) {
         if (Math.abs(v.col - m.col) > 1 || Math.abs(v.row - m.row) > 1) continue;
-        if (v.side !== m.side) {
-          v.hp -= Math.max(2, Math.round(m.pow * 0.7));
-          popup(v, "毒", "#7a5a9a");
-          if (v.hp <= 0) { v.hp = 0; v.state = "dead"; v.deadAt = now; spawnInkSpecks(v.x * TILE + TILE / 2, v.y * TILE + TILE / 2, 10); if (v.side === "foe") gold += 1; }
-        } else if (v.hp < v.maxHp) {
-          v.hp = Math.min(v.maxHp, v.hp + Math.max(2, Math.round(m.pow * 0.5)));
-          popup(v, "+" + Math.max(2, Math.round(m.pow * 0.5)), "#5a9a52");
+        if (v.side === m.side && v.hp < v.maxHp) {
+          const amt = Math.max(3, Math.round(m.pow * MIST_HEAL));
+          v.hp = Math.min(v.maxHp, v.hp + amt);
+          popup(v, "+" + amt, "#5a9a52");
         }
       }
     }
@@ -3725,6 +3751,7 @@ function render(now) {
     for (const u of sorted) drawUnit(u, now);
     drawBench(now);
     drawFx(now);
+    drawMistsFx(now);
     drawProjectiles(now);
     drawInkSlashes(now);
     drawShreds(now);
